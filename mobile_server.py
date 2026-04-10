@@ -35,9 +35,16 @@ from fasting_tracker import (
 )
 
 WEB_DIR = Path(__file__).parent / "web"
+AUTH_TOKEN = os.getenv("AUTH_TOKEN", "").strip()
 
 
 class TrackerHandler(BaseHTTPRequestHandler):
+    def _is_write_allowed(self) -> bool:
+        if not AUTH_TOKEN:
+            return True
+        header = self.headers.get("X-Auth-Token", "").strip()
+        return header == AUTH_TOKEN
+
     def _json_response(self, payload: Dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -137,6 +144,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
         return self._text_response("Not Found", HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._is_write_allowed():
+            return self._json_response({"ok": False, "error": "未授权"}, HTTPStatus.UNAUTHORIZED)
         try:
             body = self._read_json_body()
         except json.JSONDecodeError:

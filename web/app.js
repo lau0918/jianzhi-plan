@@ -20,9 +20,13 @@ async function apiGet(url) {
 }
 
 async function apiPost(url, body) {
+  const token = localStorage.getItem("auth_token") || "";
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "X-Auth-Token": token } : {}),
+    },
     body: JSON.stringify(body || {}),
   });
   const data = await res.json();
@@ -707,10 +711,17 @@ function setupEvents() {
   document.getElementById("openSettingBtn").addEventListener("click", () => openSheet("settingSheet"));
   document.getElementById("quickMealBtn").addEventListener("click", () => openSheet("mealSheet"));
   document.getElementById("quickWeightBtn").addEventListener("click", () => openSheet("weightSheet"));
+  document.getElementById("cycleGoalTag").addEventListener("click", () => openSheet("authSheet"));
 
   document.getElementById("saveMealBtn").addEventListener("click", onMealSubmit);
   document.getElementById("saveWeightBtn").addEventListener("click", onWeightSubmit);
   document.getElementById("saveSettingBtn").addEventListener("click", onSaveSetting);
+  document.getElementById("saveAuthBtn").addEventListener("click", () => {
+    const token = document.getElementById("authTokenInput").value.trim();
+    if (token) localStorage.setItem("auth_token", token);
+    setMessage(token ? "密钥已保存" : "密钥为空", !token);
+    closeSheet("authSheet");
+  });
 
   document.querySelectorAll("[data-close]").forEach((btn) => {
     btn.addEventListener("click", () => closeSheet(btn.getAttribute("data-close")));

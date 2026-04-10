@@ -258,6 +258,10 @@ h4 {
   font-weight: 700;
 }
 
+#cycleGoalTag {
+  cursor: pointer;
+}
+
 .status-good {
   color: #027a48;
   background: rgba(18, 183, 106, 0.12);
