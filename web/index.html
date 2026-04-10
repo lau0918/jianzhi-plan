@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>减脂执行跟踪</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero-shell">
+        <div class="hero-card">
+          <div class="hero-topline">
+            <p class="eyebrow">目标阶段</p>
+            <button id="openSettingBtn" class="ghost-link">编辑目标</button>
+          </div>
+          <div class="hero-summary">
+            <div class="hero-copy">
+              <h1 id="heroHeadline">先设置减脂目标</h1>
+              <p id="heroSubline" class="hero-subline">填写开始日期、初始体重和目标体重后，这里会显示进度。</p>
+              <p id="cycleGoalTag" class="status-badge status-neutral cycle-goal-tag">周期状态：待评估</p>
+            </div>
+            <div class="hero-inline">
+              <span>起始 <strong id="startWeightInline">-</strong></span>
+              <span>当前 <strong id="currentWeightInline">-</strong></span>
+              <span>目标 <strong id="targetWeightInline">-</strong></span>
+            </div>
+          </div>
+
+          <div class="progress-panel">
+            <p id="goalCycleSummary" class="hero-footnote">还差 - kg · 剩余 - 天</p>
+            <div class="progress-row compact">
+              <p class="progress-label">进度</p>
+              <div class="progress-track">
+                <div id="goalProgressBar" class="progress-fill"></div>
+              </div>
+              <p id="goalProgressText" class="hero-footnote">-</p>
+            </div>
+            <p id="paceText" class="hero-footnote">节奏判定 -</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="status-card">
+        <div class="status-head">
+          <div>
+            <p class="section-kicker">今天的任务</p>
+            <h2 id="todayStatus">今天还没开始</h2>
+          </div>
+          <div id="statusBadge" class="status-badge status-neutral">待开始</div>
+        </div>
+        <p id="todayReason" class="status-copy">先记录第一餐，开始今天的执行。</p>
+        <p id="fastingRule" class="status-rule">8+16 规则：窗口内进食，窗口外仅喝水。</p>
+        <div class="status-chips">
+          <span id="windowChip" class="chip">窗口 -</span>
+          <span id="mealCountChip" class="chip">进食 0 次</span>
+          <span id="outWindowChip" class="chip">窗口外 0 次</span>
+        </div>
+        <div class="status-actions">
+          <button id="quickMealBtn" class="primary-btn">记录第一餐</button>
+          <button id="quickWeightBtn" class="secondary-btn">记录体重</button>
+        </div>
+      </section>
+
+      <section class="feed-card reminder-card">
+        <div class="feed-head">
+          <div>
+            <p class="section-kicker">本周提醒</p>
+            <h3 id="reminderTitle">先看风险</h3>
+          </div>
+          <button id="toggleFeedBtn" class="ghost-link ghost-link-muted">查看全部记录</button>
+        </div>
+        <p id="feedSummary" class="status-copy">近7天执行稳定，没有异常。</p>
+        <p id="latestMealSummary" class="status-copy">今天最近一次进食：暂无记录。</p>
+        <div id="reminderHighlights" class="reminder-list"></div>
+
+        <div id="recordsPanel" class="records-panel hidden">
+          <div class="records-toolbar">
+            <button id="toggleRecentBtn" class="feed-toggle-btn">查看全部</button>
+          </div>
+          <p id="feedHint" class="feed-hint">默认显示最近5条</p>
+          <div id="feedList" class="feed-list"></div>
+        </div>
+      </section>
+
+      <p id="message" class="toast"></p>
+    </main>
+
+    <div id="sheetMask" class="sheet-mask hidden"></div>
+
+    <section id="mealSheet" class="sheet hidden">
+      <h3>记录进食</h3>
+      <input id="mealFoodInput" placeholder="吃了什么（必填）" maxlength="80" />
+      <input id="mealTimeInput" type="datetime-local" />
+      <input id="mealNoteInput" placeholder="备注（可选）" maxlength="80" />
+      <div class="sheet-actions">
+        <button class="secondary-btn" data-close="mealSheet">取消</button>
+        <button id="saveMealBtn" class="primary-btn">保存</button>
+      </div>
+    </section>
+
+    <section id="weightSheet" class="sheet hidden">
+      <h3>记录体重</h3>
+      <input id="weightValueInput" type="number" step="0.1" min="1" placeholder="体重(kg)" />
+      <input id="weightTimeInput" type="datetime-local" />
+      <input id="weightNoteInput" placeholder="备注（可选）" maxlength="80" />
+      <div class="sheet-actions">
+        <button class="secondary-btn" data-close="weightSheet">取消</button>
+        <button id="saveWeightBtn" class="primary-btn">保存</button>
+      </div>
+    </section>
+
+      <section id="settingSheet" class="sheet hidden">
+        <h3>减脂设置</h3>
+        <label>减肥开始日期</label>
+        <input id="goalStartDateInput" type="date" />
+        <label>减肥结束日期</label>
+        <input id="goalEndDateInput" type="date" />
+        <label>初始体重(kg)</label>
+        <input id="goalStartWeightInput" type="number" step="0.1" min="1" />
+      <label>目标体重(kg)</label>
+      <input id="goalTargetWeightInput" type="number" step="0.1" min="1" />
+      <label>每日进食窗口开始</label>
+      <input id="windowStartInput" type="time" value="10:00" />
+      <label>窗口时长(小时)</label>
+      <input id="windowHoursInput" type="number" min="1" max="24" step="1" value="8" />
+      <div class="sheet-actions">
+        <button class="secondary-btn" data-close="settingSheet">取消</button>
+        <button id="saveSettingBtn" class="primary-btn">保存</button>
+      </div>
+    </section>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

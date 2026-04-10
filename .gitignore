@@ -1,0 +1,6 @@
+.DS_Store
+fasting_data.json
+fasting_report.xlsx
+__pycache__/
+*.pyc
+.vscode/
