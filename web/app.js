@@ -590,6 +590,110 @@ function recentMealStats(data) {
   };
 }
 
+function weightTrendData(data, days = 14) {
+  const logs = (data.weights || []).slice().sort((a, b) => (a.time < b.time ? -1 : 1));
+  if (!logs.length) return [];
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(end.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+  return logs
+    .filter((log) => {
+      const dt = new Date(String(log.time || "").replace(" ", "T"));
+      return !Number.isNaN(dt.getTime()) && dt >= start && dt <= end;
+    })
+    .map((log) => ({
+      time: String(log.time || ""),
+      weight: Number(log.weight),
+    }))
+    .filter((item) => !Number.isNaN(item.weight));
+}
+
+function renderWeightTrend(data) {
+  const chart = document.getElementById("weightTrendChart");
+  const meta = document.getElementById("weightTrendMeta");
+  if (!chart || !meta) return;
+
+  const points = weightTrendData(data, 14);
+  chart.innerHTML = "";
+  if (points.length < 2) {
+    meta.textContent = points.length ? `${fmtWeight(points[0].weight)} · 首次` : "暂无数据";
+    const empty = document.createElement("div");
+    empty.className = "trend-empty";
+    empty.textContent = "记录 2 次后显示趋势";
+    chart.appendChild(empty);
+    return;
+  }
+
+  const weights = points.map((item) => item.weight);
+  const min = Math.min(...weights);
+  const max = Math.max(...weights);
+  const range = Math.max(0.5, max - min);
+  const width = 320;
+  const height = 120;
+  const padX = 16;
+  const padY = 14;
+  const innerW = width - padX * 2;
+  const innerH = height - padY * 2;
+  const step = points.length > 1 ? innerW / (points.length - 1) : 0;
+  const coords = points.map((point, index) => {
+    const x = padX + step * index;
+    const y = padY + (max - point.weight) / range * innerH;
+    return { x, y };
+  });
+  const linePoints = coords.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const areaPoints = [
+    `${coords[0].x.toFixed(1)},${height - padY}`,
+    ...coords.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`),
+    `${coords[coords.length - 1].x.toFixed(1)},${height - padY}`,
+  ].join(" ");
+  const latest = points[points.length - 1].weight;
+  const first = points[0].weight;
+  const delta = latest - first;
+  meta.textContent = `${fmtWeight(first)} → ${fmtWeight(latest)} · ${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg`;
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "体重变化趋势图");
+  svg.classList.add("weight-sparkline");
+
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `
+    <linearGradient id="weightTrendFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1d9bf0" stop-opacity="0.26"></stop>
+      <stop offset="100%" stop-color="#1d9bf0" stop-opacity="0.03"></stop>
+    </linearGradient>
+  `;
+  const area = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  area.setAttribute("points", areaPoints);
+  area.setAttribute("fill", "url(#weightTrendFill)");
+  area.setAttribute("stroke", "none");
+
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  line.setAttribute("points", linePoints);
+  line.setAttribute("fill", "none");
+  line.setAttribute("stroke", "#1d9bf0");
+  line.setAttribute("stroke-width", "3");
+  line.setAttribute("stroke-linecap", "round");
+  line.setAttribute("stroke-linejoin", "round");
+
+  coords.forEach((point, index) => {
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", String(point.x));
+    circle.setAttribute("cy", String(point.y));
+    circle.setAttribute("r", index === coords.length - 1 ? "4.5" : "3.2");
+    circle.setAttribute("fill", index === coords.length - 1 ? "#1d9bf0" : "#ffffff");
+    circle.setAttribute("stroke", "#1d9bf0");
+    circle.setAttribute("stroke-width", index === coords.length - 1 ? "2.5" : "1.8");
+    svg.appendChild(circle);
+  });
+
+  svg.append(defs, area, line);
+  chart.appendChild(svg);
+}
+
 function appendReminderItem(container, tone, title, detail) {
   const item = document.createElement("article");
   item.className = `reminder-item reminder-${tone}`;
@@ -676,6 +780,7 @@ function renderHero(data) {
 
   document.getElementById("heroHeadline").textContent = message.headline;
   document.getElementById("heroSubline").textContent = message.subline;
+  renderWeightTrend(data);
 }
 
 function renderToday(data) {
