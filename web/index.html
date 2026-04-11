@@ -71,16 +71,17 @@
           </div>
           <span id="coachStatus" class="status-badge status-neutral">今日跟进</span>
         </div>
-        <p id="coachMessage" class="status-copy">记录今天的睡眠、运动和腰围，帮助稳定节奏。</p>
+        <p id="coachMessage" class="status-copy">记录今天的睡眠与运动，帮助稳定节奏。</p>
         <div class="coach-chips">
           <span id="sleepChip" class="chip">睡眠 - h</span>
           <span id="exerciseChip" class="chip">运动 - 分钟</span>
-          <span id="waistChip" class="chip">腰围 - cm</span>
         </div>
-        <div class="status-actions">
-          <button id="quickSleepBtn" class="secondary-btn">记录睡眠</button>
-          <button id="quickExerciseBtn" class="secondary-btn">记录运动</button>
-          <button id="quickWaistBtn" class="secondary-btn">记录腰围</button>
+        <div class="coach-actions">
+          <button id="sleepShortBtn" class="secondary-btn">睡眠&lt;6h</button>
+          <button id="sleepMidBtn" class="secondary-btn">睡眠6-7h</button>
+          <button id="sleepLongBtn" class="secondary-btn">睡眠&gt;7h</button>
+          <button id="exercise20Btn" class="secondary-btn">运动20分钟</button>
+          <button id="exercise10Btn" class="secondary-btn">再加10分钟</button>
         </div>
       </section>
 
@@ -129,40 +130,6 @@
       <div class="sheet-actions">
         <button class="secondary-btn" data-close="weightSheet">取消</button>
         <button id="saveWeightBtn" class="primary-btn">保存</button>
-      </div>
-    </section>
-
-    <section id="sleepSheet" class="sheet hidden">
-      <h3>记录睡眠</h3>
-      <input id="sleepHoursInput" type="number" step="0.5" min="1" max="24" placeholder="睡眠时长(小时)" />
-      <input id="sleepTimeInput" type="datetime-local" />
-      <input id="sleepNoteInput" placeholder="备注（可选）" maxlength="80" />
-      <div class="sheet-actions">
-        <button class="secondary-btn" data-close="sleepSheet">取消</button>
-        <button id="saveSleepBtn" class="primary-btn">保存</button>
-      </div>
-    </section>
-
-    <section id="exerciseSheet" class="sheet hidden">
-      <h3>记录运动</h3>
-      <input id="exerciseMinutesInput" type="number" step="5" min="1" max="480" placeholder="运动时长(分钟)" />
-      <input id="exerciseKindInput" placeholder="运动类型（可选）" maxlength="40" />
-      <input id="exerciseTimeInput" type="datetime-local" />
-      <input id="exerciseNoteInput" placeholder="备注（可选）" maxlength="80" />
-      <div class="sheet-actions">
-        <button class="secondary-btn" data-close="exerciseSheet">取消</button>
-        <button id="saveExerciseBtn" class="primary-btn">保存</button>
-      </div>
-    </section>
-
-    <section id="waistSheet" class="sheet hidden">
-      <h3>记录腰围</h3>
-      <input id="waistCmInput" type="number" step="0.1" min="30" max="200" placeholder="腰围(cm)" />
-      <input id="waistTimeInput" type="datetime-local" />
-      <input id="waistNoteInput" placeholder="备注（可选）" maxlength="80" />
-      <div class="sheet-actions">
-        <button class="secondary-btn" data-close="waistSheet">取消</button>
-        <button id="saveWaistBtn" class="primary-btn">保存</button>
       </div>
     </section>
 

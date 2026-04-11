@@ -224,9 +224,9 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
     if sleep_logs:
         sleep_latest = sorted(sleep_logs, key=lambda s: s.get("time", ""), reverse=True)[0].get("hours")
 
-    exercise_latest = None
+    exercise_total = None
     if exercise_logs:
-        exercise_latest = sorted(exercise_logs, key=lambda e: e.get("time", ""), reverse=True)[0].get("minutes")
+        exercise_total = sum(int(e.get("minutes", 0) or 0) for e in exercise_logs)
 
     waist_latest = None
     if waist_logs:
@@ -239,7 +239,7 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
         if sleep_latest is not None and sleep_latest < 6:
             status = "未达标"
             reason = "睡眠不足，容易影响执行"
-        elif exercise_latest is not None and exercise_latest < 20:
+        elif exercise_total is not None and exercise_total < 20:
             status = "未达标"
             reason = "运动不足，建议补一段快走"
         else:
@@ -259,7 +259,7 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "fasting_success": False,
         "weight": weight_latest,
         "sleep_hours": sleep_latest,
-        "exercise_minutes": exercise_latest,
+        "exercise_minutes": exercise_total,
         "waist_cm": waist_latest,
     }
 

@@ -270,8 +270,11 @@ h4 {
   margin-top: 8px;
 }
 
-.coach-card .status-actions {
+.coach-actions {
+  display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .status-badge {
@@ -536,11 +539,6 @@ h4 {
   background: rgba(15, 118, 110, 0.12);
 }
 
-.waist-tag {
-  color: #7c3aed;
-  background: rgba(124, 58, 237, 0.12);
-}
-
 .feed-item-main p {
   margin: 0;
   font-size: 15px;
@@ -756,7 +754,7 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .coach-card .status-actions {
+  .coach-actions {
     grid-template-columns: 1fr;
   }
 

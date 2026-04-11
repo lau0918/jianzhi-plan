@@ -63,11 +63,6 @@ function fmtMinutes(v) {
   return `${Number(v)} 分钟`;
 }
 
-function fmtCm(v) {
-  if (v === null || v === undefined || Number.isNaN(Number(v))) return "-";
-  return `${Number(v).toFixed(1)} cm`;
-}
-
 function toApiDatetime(inputId) {
   const raw = document.getElementById(inputId).value;
   return raw ? raw.replace("T", " ") : "";
@@ -294,32 +289,26 @@ function groupFeed(data) {
   const weights = data.weights || [];
   const sleeps = data.sleeps || [];
   const exercises = data.exercises || [];
-  const waists = data.waists || [];
 
   meals.forEach((meal) => {
     const day = meal.date;
-    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [], waists: [] });
+    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [] });
     grouped.get(day).meals.push(meal);
   });
   weights.forEach((weight) => {
     const day = weight.date;
-    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [], waists: [] });
+    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [] });
     grouped.get(day).weights.push(weight);
   });
   sleeps.forEach((sleep) => {
     const day = sleep.date;
-    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [], waists: [] });
+    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [] });
     grouped.get(day).sleeps.push(sleep);
   });
   exercises.forEach((exercise) => {
     const day = exercise.date;
-    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [], waists: [] });
+    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [] });
     grouped.get(day).exercises.push(exercise);
-  });
-  waists.forEach((waist) => {
-    const day = waist.date;
-    if (!grouped.has(day)) grouped.set(day, { meals: [], weights: [], sleeps: [], exercises: [], waists: [] });
-    grouped.get(day).waists.push(waist);
   });
 
   const sortedDays = Array.from(grouped.keys()).sort((a, b) => (a < b ? 1 : -1));
@@ -329,7 +318,6 @@ function groupFeed(data) {
     bucket.weights.sort((a, b) => (a.time < b.time ? 1 : -1));
     bucket.sleeps.sort((a, b) => (a.time < b.time ? 1 : -1));
     bucket.exercises.sort((a, b) => (a.time < b.time ? 1 : -1));
-    bucket.waists.sort((a, b) => (a.time < b.time ? 1 : -1));
     const status = evaluateDayBlock(bucket, data.plan);
     return {
       day,
@@ -339,7 +327,6 @@ function groupFeed(data) {
       weights: bucket.weights,
       sleeps: bucket.sleeps,
       exercises: bucket.exercises,
-      waists: bucket.waists,
       outCount: bucket.meals.filter((m) => mealFlag(m, data.plan) === "窗口外").length,
     };
   });
@@ -354,7 +341,7 @@ function weekSnapshots(data) {
     const date = new Date(today);
     date.setDate(today.getDate() - i);
     const day = dayString(date);
-    const block = byDay.get(day) || { meals: [], weights: [], sleeps: [], exercises: [], waists: [], outCount: 0, status: "未记录" };
+    const block = byDay.get(day) || { meals: [], weights: [], sleeps: [], exercises: [], outCount: 0, status: "未记录" };
     snapshots.push({
       day,
       label: dayLabel(day),
@@ -363,7 +350,6 @@ function weekSnapshots(data) {
       weights: block.weights || [],
       sleeps: block.sleeps || [],
       exercises: block.exercises || [],
-      waists: block.waists || [],
       outCount: block.outCount || 0,
     });
   }
@@ -401,9 +387,6 @@ function openSheet(id) {
   document.getElementById(id).classList.remove("hidden");
   if (id === "mealSheet") document.getElementById("mealTimeInput").value ||= nowLocalInputValue();
   if (id === "weightSheet") document.getElementById("weightTimeInput").value ||= nowLocalInputValue();
-  if (id === "sleepSheet") document.getElementById("sleepTimeInput").value ||= nowLocalInputValue();
-  if (id === "exerciseSheet") document.getElementById("exerciseTimeInput").value ||= nowLocalInputValue();
-  if (id === "waistSheet") document.getElementById("waistTimeInput").value ||= nowLocalInputValue();
 }
 
 function closeSheet(id) {
@@ -525,7 +508,6 @@ function renderCoach(data) {
 
   document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
-  document.getElementById("waistChip").textContent = `腰围 ${fmtCm(today.waist_cm)}`;
 }
 
 function goalFilled(goal) {
@@ -623,7 +605,7 @@ function renderFeed(data) {
     title.textContent = block.label;
     const subtitle = document.createElement("p");
     subtitle.className = "day-card-sub";
-    subtitle.textContent = `${block.meals.length} 次进食 · 窗口外 ${block.outCount} 次 · 体重 ${block.weights.length} 次 · 睡眠 ${block.sleeps.length} 次 · 运动 ${block.exercises.length} 次 · 腰围 ${block.waists.length} 次`;
+    subtitle.textContent = `${block.meals.length} 次进食 · 窗口外 ${block.outCount} 次 · 体重 ${block.weights.length} 次 · 睡眠 ${block.sleeps.length} 次 · 运动 ${block.exercises.length} 次`;
     titleWrap.append(title, subtitle);
 
     const right = document.createElement("div");
@@ -699,18 +681,6 @@ function renderFeed(data) {
         `;
         body.appendChild(item);
       });
-      block.waists.forEach((waist) => {
-        const item = document.createElement("div");
-        item.className = "feed-item";
-        item.innerHTML = `
-          <span class="feed-item-tag waist-tag">腰围</span>
-          <div class="feed-item-main">
-            <p>${fmtCm(waist.cm)}</p>
-            <span>${waist.time.slice(11)}${waist.note ? ` · ${waist.note}` : ""}</span>
-          </div>
-        `;
-        body.appendChild(item);
-      });
       card.appendChild(body);
     }
 
@@ -780,72 +750,28 @@ async function onWeightSubmit() {
   }
 }
 
-async function onSleepSubmit() {
-  const hours = Number(document.getElementById("sleepHoursInput").value || 0);
-  const note = document.getElementById("sleepNoteInput").value.trim();
-  const time = toApiDatetime("sleepTimeInput");
-  if (!hours || hours <= 0) {
-    setMessage("请填写有效睡眠时长", true);
-    return;
-  }
-
-  try {
-    await apiPost("/api/sleep", { hours, note, time });
-    setMessage("已记录睡眠");
-    document.getElementById("sleepHoursInput").value = "";
-    document.getElementById("sleepTimeInput").value = "";
-    document.getElementById("sleepNoteInput").value = "";
-    closeSheet("sleepSheet");
-    await refreshStatus();
-  } catch (err) {
-    setMessage(err.message, true);
-  }
+function onSleepPreset(hours, label) {
+  return async () => {
+    try {
+      await apiPost("/api/sleep", { hours, note: `一键打卡:${label}` });
+      setMessage(`已记录睡眠：${label}`);
+      await refreshStatus();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  };
 }
 
-async function onExerciseSubmit() {
-  const minutes = Number(document.getElementById("exerciseMinutesInput").value || 0);
-  const kind = document.getElementById("exerciseKindInput").value.trim();
-  const note = document.getElementById("exerciseNoteInput").value.trim();
-  const time = toApiDatetime("exerciseTimeInput");
-  if (!minutes || minutes <= 0) {
-    setMessage("请填写有效运动时长", true);
-    return;
-  }
-
-  try {
-    await apiPost("/api/exercise", { minutes, kind, note, time });
-    setMessage("已记录运动");
-    document.getElementById("exerciseMinutesInput").value = "";
-    document.getElementById("exerciseKindInput").value = "";
-    document.getElementById("exerciseTimeInput").value = "";
-    document.getElementById("exerciseNoteInput").value = "";
-    closeSheet("exerciseSheet");
-    await refreshStatus();
-  } catch (err) {
-    setMessage(err.message, true);
-  }
-}
-
-async function onWaistSubmit() {
-  const cm = Number(document.getElementById("waistCmInput").value || 0);
-  const note = document.getElementById("waistNoteInput").value.trim();
-  const time = toApiDatetime("waistTimeInput");
-  if (!cm || cm <= 0) {
-    setMessage("请填写有效腰围", true);
-    return;
-  }
-
-  try {
-    await apiPost("/api/waist", { cm, note, time });
-    setMessage("已记录腰围");
-    document.getElementById("waistCmInput").value = "";
-    document.getElementById("waistTimeInput").value = "";
-    document.getElementById("waistNoteInput").value = "";
-    closeSheet("waistSheet");
-    await refreshStatus();
-  } catch (err) {
-    setMessage(err.message, true);
-  }
+function onExercisePreset(minutes, label) {
+  return async () => {
+    try {
+      await apiPost("/api/exercise", { minutes, kind: "快走", note: `一键打卡:${label}` });
+      setMessage(`已记录运动：${label}`);
+      await refreshStatus();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  };
 }
 
 async function onSaveSetting() {
@@ -885,16 +811,15 @@ function setupEvents() {
   document.getElementById("openSettingBtn").addEventListener("click", () => openSheet("settingSheet"));
   document.getElementById("quickMealBtn").addEventListener("click", () => openSheet("mealSheet"));
   document.getElementById("quickWeightBtn").addEventListener("click", () => openSheet("weightSheet"));
-  document.getElementById("quickSleepBtn").addEventListener("click", () => openSheet("sleepSheet"));
-  document.getElementById("quickExerciseBtn").addEventListener("click", () => openSheet("exerciseSheet"));
-  document.getElementById("quickWaistBtn").addEventListener("click", () => openSheet("waistSheet"));
+  document.getElementById("sleepShortBtn").addEventListener("click", onSleepPreset(5.5, "睡眠<6h"));
+  document.getElementById("sleepMidBtn").addEventListener("click", onSleepPreset(6.5, "睡眠6-7h"));
+  document.getElementById("sleepLongBtn").addEventListener("click", onSleepPreset(7.5, "睡眠>7h"));
+  document.getElementById("exercise20Btn").addEventListener("click", onExercisePreset(20, "运动20分钟"));
+  document.getElementById("exercise10Btn").addEventListener("click", onExercisePreset(10, "再加10分钟"));
   document.getElementById("cycleGoalTag").addEventListener("click", () => openSheet("authSheet"));
 
   document.getElementById("saveMealBtn").addEventListener("click", onMealSubmit);
   document.getElementById("saveWeightBtn").addEventListener("click", onWeightSubmit);
-  document.getElementById("saveSleepBtn").addEventListener("click", onSleepSubmit);
-  document.getElementById("saveExerciseBtn").addEventListener("click", onExerciseSubmit);
-  document.getElementById("saveWaistBtn").addEventListener("click", onWaistSubmit);
   document.getElementById("saveSettingBtn").addEventListener("click", onSaveSetting);
   document.getElementById("saveAuthBtn").addEventListener("click", () => {
     const token = document.getElementById("authTokenInput").value.trim();
