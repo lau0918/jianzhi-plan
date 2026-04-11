@@ -90,12 +90,9 @@ def _notion_readable_error(exc: Exception, database_id: str, env_name: str) -> s
     message = str(exc) or "未知错误"
     lowered = message.lower()
     if "object_not_found" in lowered or "could not find database" in lowered:
-        return (
-            f"{env_name} 对应的 Notion 数据库不可访问：{database_id}. "
-            "通常是数据库 ID 错了，或数据库没有通过 Share 共享给该 Notion integration。"
-        )
+        return f"{env_name} 不可访问：请检查 ID 或 Share 权限"
     if "unauthorized" in lowered or "restricted_resource" in lowered:
-        return f"{env_name} 的 Notion 集成没有权限访问该数据库，请检查 Notion 页面共享权限。"
+        return f"{env_name} 未授权：请检查 Share 权限"
     return message
 
 

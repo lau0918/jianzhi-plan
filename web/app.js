@@ -36,11 +36,11 @@ function withThrottle(actionKey, fn) {
 
 function syncOutcomeText(baseText, data) {
   if (!data) return baseText;
-  if (data.cloud_synced === true) return `${baseText}，并已同步到 Notion`;
+  if (data.cloud_synced === true) return `${baseText}，已同步`;
   if (data.cloud_synced === false && data.cloud_error) {
-    return `${baseText}，本地已保存，但 Notion 同步失败：${data.cloud_error}`;
+    return `${baseText}，已保存，本地可用`;
   }
-  return `${baseText}，本地已保存`;
+  return `${baseText}，已保存`;
 }
 
 function hasUnsavedInput(sheetId) {
