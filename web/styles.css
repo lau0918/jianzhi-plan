@@ -1044,6 +1044,10 @@ button:focus-visible {
   color: #d92d20;
 }
 
+.toast-warn {
+  color: #b54708;
+}
+
 .hidden {
   display: none;
 }

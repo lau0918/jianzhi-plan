@@ -965,11 +965,18 @@ class TrackerHandler(BaseHTTPRequestHandler):
         if scope not in {"local", "all"}:
             scope = "local"
 
-        _reset_local_data()
-
         archived_total = 0
         cloud_error = None
-        if scope == "all" and _notion_enabled():
+        if scope == "all":
+            if not _notion_enabled():
+                return self._json_response(
+                    {
+                        "ok": False,
+                        "error": "未配置 Notion，无法清空云端",
+                        "cloud_synced": False,
+                        "cloud_error": "未配置 Notion",
+                    },
+                )
             resolved = _resolve_reset_database_ids()
             for title, db_id in resolved.items():
                 try:
@@ -981,9 +988,6 @@ class TrackerHandler(BaseHTTPRequestHandler):
                 except Exception as exc:
                     cloud_error = f"{title}: {_notion_readable_error(exc, db_id, '数据库')}"
                     break
-
-        message = "已初始化本地数据"
-        if scope == "all":
             if cloud_error:
                 return self._json_response(
                     {
@@ -993,6 +997,11 @@ class TrackerHandler(BaseHTTPRequestHandler):
                         "cloud_error": cloud_error,
                     }
                 )
+
+        _reset_local_data()
+
+        message = "已初始化本地数据"
+        if scope == "all":
             message = "已初始化本地与云端测试数据"
 
         return self._json_response(

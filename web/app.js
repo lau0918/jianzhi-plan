@@ -8,10 +8,11 @@ const state = {
   actionLocks: Object.create(null),
 };
 
-function setMessage(text, isError = false) {
+function setMessage(text, isError = false, tone = "error") {
   const el = document.getElementById("message");
   el.textContent = text;
-  el.classList.toggle("toast-error", isError);
+  el.classList.toggle("toast-error", tone === "error" && isError);
+  el.classList.toggle("toast-warn", tone === "warning");
 }
 
 function getAuthToken() {
@@ -885,7 +886,7 @@ async function onMealSubmit() {
   await withThrottle("saveMeal", async () => {
     try {
       const data = await apiPost("/api/meal", { food, note, time });
-      setMessage(syncOutcomeText(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", data), !data.in_window);
+      setMessage(syncOutcomeText(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", data), !data.in_window, data.in_window ? "normal" : "warning");
       setInputValue("mealFoodInput", "");
       setInputValue("mealTimeInput", "");
       setInputValue("mealNoteInput", "");
