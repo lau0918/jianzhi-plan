@@ -31,7 +31,7 @@ python3 fasting_tracker.py set-window --start "07:00" --hours 8
 python3 fasting_tracker.py window
 
 # 记录进食 / 体重
-python3 fasting_tracker.py meal --food "鸡胸肉+西兰花" --time "2026-04-08 12:10" --amount 正常 --diet-types 外卖 高碳 --risk-scenarios 加班
+python3 fasting_tracker.py meal --food "鸡胸肉+西兰花" --time "2026-04-08 12:10" --amount 正常 --diet-types 外卖 轻食 --risk-scenarios 加班
 python3 fasting_tracker.py weight --value 71.8 --time "2026-04-08 07:20"
 
 # 查看历史与统计

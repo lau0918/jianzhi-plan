@@ -67,7 +67,7 @@ class RegressionTests(unittest.TestCase):
             "正常",
             "--diet-types",
             "外卖",
-            "高碳",
+            "轻食",
             "--risk-scenarios",
             "加班",
             "--note",
@@ -93,6 +93,7 @@ class RegressionTests(unittest.TestCase):
         self.assertNotIn("waist_logs", data)
         self.assertEqual(data.get("meals", [])[0].get("meal_amount"), "正常")
         self.assertIn("外卖", data.get("meals", [])[0].get("diet_types", []))
+        self.assertIn("轻食", data.get("meals", [])[0].get("diet_types", []))
         self.assertIn("加班", data.get("meals", [])[0].get("risk_scenarios", []))
 
         excel_path = self.tmpdir / "fasting_report.xlsx"
@@ -205,7 +206,7 @@ class RegressionTests(unittest.TestCase):
                     "food": "燕麦+牛奶",
                     "time": f"{today} 11:10",
                     "meal_amount": "过量",
-                    "diet_types": ["外卖", "高碳"],
+                    "diet_types": ["外卖", "轻食"],
                     "risk_scenarios": ["加班"],
                     "note": "午餐",
                 },
@@ -234,6 +235,7 @@ class RegressionTests(unittest.TestCase):
             self.assertEqual(len(final_status["meals"]), 1)
             self.assertEqual(final_status["meals"][0].get("meal_amount"), "过量")
             self.assertIn("外卖", final_status["meals"][0].get("diet_types", []))
+            self.assertIn("轻食", final_status["meals"][0].get("diet_types", []))
             self.assertIn("加班", final_status["meals"][0].get("risk_scenarios", []))
             self.assertEqual(len(final_status["weights"]), 1)
             self.assertEqual(len(final_status["sleeps"]), 1)
