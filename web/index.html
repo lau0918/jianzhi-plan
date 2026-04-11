@@ -117,8 +117,12 @@
         <div class="risk-meter" aria-label="近7天风险比例">
           <div id="riskMeterFill" class="risk-meter-fill"></div>
         </div>
-        <p id="feedSummary" class="status-copy compact-summary">7天稳定</p>
-        <p id="latestMealSummary" class="micro-note">最近：暂无</p>
+        <div class="review-strip">
+          <span id="reviewStatus" class="status-badge status-neutral">稳定</span>
+          <span id="reviewMissed" class="chip">偏离 0</span>
+          <span id="reviewMissing" class="chip">缺记 0</span>
+          <span id="reviewLatest" class="chip">最近 -</span>
+        </div>
         <div id="reminderHighlights" class="reminder-list"></div>
 
         <div id="recordsPanel" class="records-panel hidden">
