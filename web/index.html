@@ -8,10 +8,31 @@
   </head>
   <body>
     <main class="page">
+      <section class="status-card today-hero-card">
+        <div class="status-head">
+          <div>
+            <p class="section-kicker">今日下一步</p>
+            <h1 id="todayStatus">今天还没开始</h1>
+          </div>
+          <div id="statusBadge" class="status-badge status-neutral">待开始</div>
+        </div>
+        <p id="todayReason" class="status-copy">先记录第一餐，开始今天的执行。</p>
+        <p id="fastingRule" class="status-rule">8+16 规则：窗口内进食，窗口外仅喝水。</p>
+        <div class="status-chips">
+          <span id="windowChip" class="chip">窗口 -</span>
+          <span id="mealCountChip" class="chip">进食 0 次</span>
+          <span id="outWindowChip" class="chip">窗口外 0 次</span>
+        </div>
+        <div class="status-actions next-action-panel">
+          <button id="quickMealBtn" class="primary-btn">记录第一餐</button>
+          <button id="quickWeightBtn" class="secondary-btn">记录体重</button>
+        </div>
+      </section>
+
       <section class="hero-shell">
-        <div class="hero-card">
+        <div class="hero-card goal-summary-card">
           <div class="hero-topline">
-            <p class="eyebrow">减脂目标</p>
+            <p class="eyebrow">目标摘要</p>
             <div class="hero-actions">
               <button id="openAuthBtn" class="ghost-link ghost-link-muted">解锁</button>
               <button id="openSettingBtn" class="ghost-link">编辑目标</button>
@@ -19,7 +40,7 @@
           </div>
           <div class="hero-summary">
             <div class="hero-copy">
-              <h1 id="heroHeadline">先设置减脂目标</h1>
+              <h2 id="heroHeadline">先设置减脂目标</h2>
               <p id="heroSubline" class="hero-subline">填写开始日期、初始体重和目标体重后，这里会显示进度。</p>
               <p id="cycleGoalTag" class="status-badge status-neutral cycle-goal-tag">周期状态：待评估</p>
               <p id="goalSourceText" class="hero-footnote">数据状态：本地缓存</p>
@@ -31,7 +52,7 @@
             </div>
           </div>
 
-          <div class="progress-panel" aria-label="减脂进度路线图">
+          <div class="progress-panel goal-progress-panel" aria-label="减脂进度路线图">
             <p id="goalCycleSummary" class="hero-footnote">还差 - kg · 剩余 - 天</p>
             <div class="progress-row compact">
               <p class="progress-label">减重进度</p>
@@ -43,27 +64,6 @@
             <p id="paceText" class="hero-footnote">节奏判定 -</p>
           </div>
 
-        </div>
-      </section>
-
-      <section class="status-card">
-        <div class="status-head">
-          <div>
-            <p class="section-kicker">今日执行</p>
-            <h2 id="todayStatus">今天还没开始</h2>
-          </div>
-          <div id="statusBadge" class="status-badge status-neutral">待开始</div>
-        </div>
-        <p id="todayReason" class="status-copy">先记录第一餐，开始今天的执行。</p>
-        <p id="fastingRule" class="status-rule">8+16 规则：窗口内进食，窗口外仅喝水。</p>
-        <div class="status-chips">
-          <span id="windowChip" class="chip">窗口 -</span>
-          <span id="mealCountChip" class="chip">进食 0 次</span>
-          <span id="outWindowChip" class="chip">窗口外 0 次</span>
-        </div>
-        <div class="status-actions">
-          <button id="quickMealBtn" class="primary-btn">记录第一餐</button>
-          <button id="quickWeightBtn" class="secondary-btn">记录体重</button>
         </div>
       </section>
 

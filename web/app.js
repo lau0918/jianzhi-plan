@@ -230,50 +230,99 @@ function executionStatusOf(today) {
   return today?.execution_status || today?.status || "未记录";
 }
 
-function todayActionCopy(today) {
+function minutesFromTime(value) {
+  const [h, m] = String(value || "10:00").split(":");
+  return Number(h || 0) * 60 + Number(m || 0);
+}
+
+function currentWindowState(plan) {
+  const safePlan = plan || { start: "10:00", hours: 8 };
+  const start = minutesFromTime(safePlan.start || "10:00");
+  const duration = Number(safePlan.hours || 8) * 60;
+  const end = (start + duration) % 1440;
+  const now = new Date();
+  const current = now.getHours() * 60 + now.getMinutes();
+  const inWindow = duration >= 1440 ? true : start <= end ? current >= start && current <= end : current >= start || current <= end;
+  const minutesLeft = inWindow
+    ? start <= end
+      ? Math.max(0, end - current)
+      : current >= start
+        ? 1440 - current + end
+        : end - current
+    : start > current
+      ? start - current
+      : 1440 - current + start;
+  return {
+    inWindow,
+    minutesLeft,
+    start: safePlan.start || "10:00",
+    end: `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`,
+  };
+}
+
+function fmtDurationMinutes(minutes) {
+  if (minutes == null || Number.isNaN(Number(minutes))) return "-";
+  const safe = Math.max(0, Number(minutes));
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  if (h <= 0) return `${m}分钟`;
+  if (m === 0) return `${h}小时`;
+  return `${h}小时${m}分钟`;
+}
+
+function todayActionCopy(today, plan) {
   const mealCount = Number(today.meal_count || 0);
   const hasWeight = today.weight !== null && today.weight !== undefined;
   const executionStatus = executionStatusOf(today);
+  const windowState = currentWindowState(plan);
 
   if (executionStatus === "未达标") {
     return {
       title: "今天有偏离",
-      reason: "已经出现窗口外进食，下一餐回到窗口内就行。",
+      reason: windowState.inWindow
+        ? `现在在进食窗口内，下一餐回到窗口内记录即可。`
+        : `当前正在断食，先喝水，下一餐等 ${windowState.start} 后再吃。`,
       badgeLabel: "需要调整",
       badgeClass: "status-bad",
-      mealButton: "记录下一次进食（窗口内）",
+      mealButton: windowState.inWindow ? "记录下一餐，回到窗口内" : "记录进食",
       weightButton: hasWeight ? "更新体重" : "记录体重",
     };
   }
 
-  if (executionStatus === "达标") {
+  if (mealCount > 0 && executionStatus === "达标") {
     return {
-      title: "今天执行正常",
-      reason: "今天所有进食都在窗口内，继续保持。",
+      title: windowState.inWindow ? "现在可以进食" : "正在断食",
+      reason: windowState.inWindow
+        ? `窗口 ${windowState.start}-${windowState.end}，还剩 ${fmtDurationMinutes(windowState.minutesLeft)}。`
+        : `今天进食都在窗口内，距离下一次进食还有 ${fmtDurationMinutes(windowState.minutesLeft)}。`,
       badgeLabel: "进行顺利",
       badgeClass: "status-good",
-      mealButton: "继续记录进食",
+      mealButton: windowState.inWindow ? "记录这一餐" : "记录进食",
       weightButton: hasWeight ? "更新体重" : "记录体重",
     };
   }
 
   if (hasWeight && mealCount === 0) {
     return {
-      title: "今天还差进食记录",
-      reason: "体重已记录，下一步记录第一餐。",
+      title: windowState.inWindow ? "现在可以进食" : "正在断食",
+      reason: windowState.inWindow
+        ? `体重已记录，窗口还剩 ${fmtDurationMinutes(windowState.minutesLeft)}，下一步记录第一餐。`
+        : `体重已记录，距离进食窗口开始还有 ${fmtDurationMinutes(windowState.minutesLeft)}。`,
       badgeLabel: "待完成",
       badgeClass: "status-neutral",
-      mealButton: "记录第一餐",
+      mealButton: windowState.inWindow ? "记录第一餐" : "记录进食",
       weightButton: "更新体重",
     };
   }
 
   return {
-    title: "今天还没开始",
-    reason: "先记录第一餐，开始今天的执行。",
+    title: windowState.inWindow ? "现在可以进食" : "正在断食",
+    reason: windowState.inWindow
+      ? `窗口 ${windowState.start}-${windowState.end}，先记录第一餐。`
+      : `窗口 ${windowState.start}-${windowState.end}，当前只喝水，距离开始还有 ${fmtDurationMinutes(windowState.minutesLeft)}。`,
     badgeLabel: "待开始",
     badgeClass: "status-neutral",
-    mealButton: "记录第一餐",
+    mealButton: windowState.inWindow ? "记录第一餐" : "记录进食",
     weightButton: hasWeight ? "更新体重" : "记录体重",
   };
 }
@@ -547,7 +596,8 @@ function renderHero(data) {
 function renderToday(data) {
   const today = data.today || {};
   const badge = document.getElementById("statusBadge");
-  const copy = todayActionCopy(today);
+  const plan = data.plan || { start: "10:00", hours: 8 };
+  const copy = todayActionCopy(today, plan);
   if (data.goal?.is_sprint_phase) {
     copy.reason = `冲刺期：还剩 ${data.goal.cycle_remaining_days} 天。${copy.reason}`;
   }
@@ -556,18 +606,21 @@ function renderToday(data) {
   }
   badge.className = `status-badge ${copy.badgeClass}`;
   badge.textContent = copy.badgeLabel;
+  const statusCard = document.querySelector(".today-hero-card");
+  if (statusCard) {
+    statusCard.classList.remove("today-good", "today-bad", "today-neutral");
+    const toneClass = copy.badgeClass === "status-bad" ? "today-bad" : copy.badgeClass === "status-good" ? "today-good" : "today-neutral";
+    statusCard.classList.add(toneClass);
+  }
 
   document.getElementById("todayStatus").textContent = copy.title;
   document.getElementById("todayReason").textContent = copy.reason;
   document.getElementById("fastingRule").textContent = "8+16 规则：窗口内进食，窗口外仅喝水。";
 
-  const plan = data.plan || { start: "10:00", hours: 8 };
-  const startHour = Number((plan.start || "10:00").split(":")[0]);
-  const startMinute = (plan.start || "10:00").split(":")[1] || "00";
-  const endHour = (startHour + Number(plan.hours || 8)) % 24;
+  const windowState = currentWindowState(plan);
 
   document.getElementById("windowChip").textContent =
-    `窗口 ${plan.start}-${String(endHour).padStart(2, "0")}:${startMinute}`;
+    `窗口 ${windowState.start}-${windowState.end}`;
   document.getElementById("mealCountChip").textContent = `进食 ${today.meal_count || 0} 次`;
   document.getElementById("outWindowChip").textContent = `窗口外 ${today.meal_out_window_count || 0} 次`;
   document.getElementById("quickMealBtn").textContent = copy.mealButton;
