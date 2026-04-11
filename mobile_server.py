@@ -50,6 +50,7 @@ NOTION_SLEEP_DB = os.getenv("NOTION_SLEEP_DB", "").strip()
 NOTION_EXERCISE_DB = os.getenv("NOTION_EXERCISE_DB", "").strip()
 _NOTION_DB_SCHEMA_CACHE: Dict[str, Dict[str, Any]] = {}
 _NOTION_DB_ID_RE = re.compile(r"[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+_NOTION_DB_RESOLUTION_CACHE: Dict[str, str] = {}
 
 
 def _notion_enabled() -> bool:
@@ -96,6 +97,47 @@ def _notion_readable_error(exc: Exception, database_id: str, env_name: str) -> s
     if "unauthorized" in lowered or "restricted_resource" in lowered:
         return f"{env_name} 的 Notion 集成没有权限访问该数据库，请检查 Notion 页面共享权限。"
     return message
+
+
+def _notion_search_database_id(title: str) -> str | None:
+    if not NOTION_TOKEN:
+        return None
+    payload = {
+        "query": title,
+        "filter": {"property": "object", "value": "database"},
+        "page_size": 10,
+    }
+    try:
+        result = _notion_request_json("/search", payload=payload, method="POST")
+    except Exception:
+        return None
+    for item in result.get("results", []):
+        if not isinstance(item, dict) or item.get("object") != "database":
+            continue
+        db_title = ((item.get("title") or [])[:1] or [{}])[0].get("plain_text", "")
+        if db_title == title:
+            return str(item.get("id") or "").strip()
+    return None
+
+
+def _resolve_notion_database_id(value: str, title: str) -> str:
+    cache_key = f"{title}:{value}"
+    if cache_key in _NOTION_DB_RESOLUTION_CACHE:
+        return _NOTION_DB_RESOLUTION_CACHE[cache_key]
+    normalized = _normalize_notion_database_id(value)
+    if normalized:
+        try:
+            _notion_database_schema(normalized)
+            _NOTION_DB_RESOLUTION_CACHE[cache_key] = normalized
+            return normalized
+        except Exception:
+            pass
+    fallback = _notion_search_database_id(title)
+    if fallback:
+        _NOTION_DB_RESOLUTION_CACHE[cache_key] = fallback
+        return fallback
+    _NOTION_DB_RESOLUTION_CACHE[cache_key] = normalized
+    return normalized
 
 
 def _notion_request_json(endpoint: str, payload: Dict[str, Any] | None = None, method: str = "GET") -> Dict[str, Any]:
@@ -187,7 +229,7 @@ def _notion_sync_page(database_id: str, properties: Dict[str, Any]) -> tuple[boo
 
 
 def _notion_sync_meal(meal: MealRecord, in_window: bool) -> tuple[bool, str | None]:
-    db_id = _normalize_notion_database_id(NOTION_MEALS_DB)
+    db_id = _resolve_notion_database_id(NOTION_MEALS_DB, "进食记录")
     if not db_id:
         return False, "未配置进食表"
     try:
@@ -212,7 +254,7 @@ def _notion_sync_meal(meal: MealRecord, in_window: bool) -> tuple[bool, str | No
 
 
 def _notion_sync_weight(item: WeightRecord) -> tuple[bool, str | None]:
-    db_id = _normalize_notion_database_id(NOTION_WEIGHTS_DB)
+    db_id = _resolve_notion_database_id(NOTION_WEIGHTS_DB, "体重记录")
     if not db_id:
         return False, "未配置体重表"
     try:
@@ -236,7 +278,7 @@ def _notion_sync_weight(item: WeightRecord) -> tuple[bool, str | None]:
 
 
 def _notion_sync_goal(goal: Dict[str, Any]) -> tuple[bool, str | None]:
-    db_id = _normalize_notion_database_id(NOTION_GOALS_DB)
+    db_id = _resolve_notion_database_id(NOTION_GOALS_DB, "目标设置")
     if not db_id:
         return False, "未配置目标表"
     try:
@@ -273,7 +315,7 @@ def _notion_sync_goal(goal: Dict[str, Any]) -> tuple[bool, str | None]:
 
 
 def _notion_sync_sleep(item: SleepRecord) -> tuple[bool, str | None]:
-    db_id = _normalize_notion_database_id(NOTION_SLEEP_DB)
+    db_id = _resolve_notion_database_id(NOTION_SLEEP_DB, "睡眠记录")
     if not db_id:
         return False, "未配置睡眠表"
     try:
@@ -297,7 +339,7 @@ def _notion_sync_sleep(item: SleepRecord) -> tuple[bool, str | None]:
 
 
 def _notion_sync_exercise(item: ExerciseRecord) -> tuple[bool, str | None]:
-    db_id = _normalize_notion_database_id(NOTION_EXERCISE_DB)
+    db_id = _resolve_notion_database_id(NOTION_EXERCISE_DB, "运动记录")
     if not db_id:
         return False, "未配置运动表"
     try:
@@ -344,7 +386,7 @@ def _coach_message(today: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _notion_latest_goal_snapshot() -> Dict[str, Any] | None:
-    db_id = _normalize_notion_database_id(NOTION_GOALS_DB)
+    db_id = _resolve_notion_database_id(NOTION_GOALS_DB, "目标设置")
     if not (NOTION_TOKEN and db_id):
         return None
     try:

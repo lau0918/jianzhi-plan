@@ -76,6 +76,39 @@ def _post_json(url: str, payload: dict, headers: dict) -> dict:
         raise RuntimeError(f"HTTP {exc.code}: {body or exc.reason}") from exc
 
 
+def _notion_search_database_id(title: str) -> str | None:
+    try:
+        result = _notion_request_json(
+            "/search",
+            payload={
+                "query": title,
+                "filter": {"property": "object", "value": "database"},
+                "page_size": 10,
+            },
+            method="POST",
+        )
+    except Exception:
+        return None
+    for item in result.get("results", []):
+        if not isinstance(item, dict) or item.get("object") != "database":
+            continue
+        db_title = ((item.get("title") or [])[:1] or [{}])[0].get("plain_text", "")
+        if db_title == title:
+            return str(item.get("id") or "").strip()
+    return None
+
+
+def _resolve_notion_database_id(value: str, title: str) -> str:
+    normalized = _normalize_notion_database_id(value)
+    if normalized:
+        try:
+            _notion_request_json(f"/databases/{normalized}", method="GET")
+            return normalized
+        except Exception:
+            pass
+    return _notion_search_database_id(title) or normalized
+
+
 def _notion_database_schema(database_id: str) -> dict:
     return _notion_request_json(f"/databases/{database_id}", method="GET")
 
@@ -97,7 +130,7 @@ def _notion_pick_property(schema: dict, prop_type: str, keywords: tuple[str, ...
 
 
 def _notion_query_today_meals() -> int:
-    database_id = _normalize_notion_database_id(NOTION_MEALS_DB)
+    database_id = _resolve_notion_database_id(NOTION_MEALS_DB, "进食记录")
     schema = _notion_database_schema(database_id)
     date_prop = _notion_pick_property(schema, "date", ("时间", "日期"))
     if not date_prop:
@@ -139,7 +172,7 @@ def _send_telegram(message: str) -> None:
 
 def main() -> None:
     _require_env("NOTION_TOKEN", NOTION_TOKEN)
-    _require_env("NOTION_MEALS_DB", _normalize_notion_database_id(NOTION_MEALS_DB))
+    _require_env("NOTION_MEALS_DB", _resolve_notion_database_id(NOTION_MEALS_DB, "进食记录"))
     _require_env("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
     _require_env("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID)
 
