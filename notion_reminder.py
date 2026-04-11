@@ -80,13 +80,19 @@ def main() -> None:
     _require_env("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
     _require_env("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID)
 
-    meal_count = _notion_query_today_meals()
+    meal_count = None
+    meal_line = "当前未能读取今日进食记录，请手动确认是否已记录。"
+    try:
+        meal_count = _notion_query_today_meals()
+        meal_line = f"今日已记录进食 {meal_count} 次。"
+    except Exception as exc:  # noqa: BLE001
+        print(f"警告: Notion 查询失败，改为发送通用提醒: {exc}")
 
     tz = ZoneInfo(TZ_NAME or "Asia/Shanghai")
     now = datetime.now(tz).strftime("%Y-%m-%d %H:%M")
     message = (
         f"提醒：请在进食窗口 {REMINDER_WINDOW} 内完成下一餐。\n"
-        f"今日已记录进食 {meal_count} 次。({now})"
+        f"{meal_line} ({now})"
     )
     _send_telegram(message)
     print("已发送提醒。")

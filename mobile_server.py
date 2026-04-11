@@ -163,21 +163,15 @@ def _goal_pace_label(value: str) -> str:
     return "周期内有望达标"
 
 
-def _coach_message(today: Dict[str, Any]) -> Dict[str, str]:
-    meal_count = int(today.get("meal_count") or 0)
-    out_count = int(today.get("meal_out_window_count") or 0)
-    sleep_hours = today.get("sleep_hours")
-    exercise_minutes = today.get("exercise_minutes")
-
-    if out_count > 0:
-        return {"focus": "窗口纪律", "message": "已出现窗口外进食，下一餐务必回到窗口内。"}
-    if meal_count < 3:
-        return {"focus": "三餐完成", "message": "今天三餐还不完整，按计划补齐下一餐。"}
-    if sleep_hours is not None and sleep_hours < 6:
-        return {"focus": "睡眠修复", "message": "昨晚睡眠偏少，今晚尽量提前入睡。"}
-    if exercise_minutes is not None and exercise_minutes < 20:
-        return {"focus": "运动达标", "message": "今天运动不足，安排一段快走或拉伸。"}
-    return {"focus": "稳定执行", "message": "执行节奏稳定，按计划继续。"}
+def _coach_message(today: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "focus": str(today.get("coach_focus") or "执行重点"),
+        "message": str(today.get("coach_message") or "保持节奏，优先完成今天的执行。"),
+        "status_label": str(today.get("coach_status") or "待跟进"),
+        "status_tone": str(today.get("coach_tone") or "neutral"),
+        "flags": list(today.get("coach_flags") or []),
+        "alerts": list(today.get("coach_alerts") or []),
+    }
 
 
 class TrackerHandler(BaseHTTPRequestHandler):

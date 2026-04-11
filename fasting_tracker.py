@@ -198,6 +198,71 @@ def calc_streak(records: List[Dict[str, Any]]) -> int:
     return streak
 
 
+def build_coach_review(meal_count: int, out_count: int, sleep_latest: Optional[float], exercise_total: Optional[int]) -> Dict[str, Any]:
+    if meal_count <= 0:
+        return {
+            "focus": "开始执行",
+            "message": "今天还没有进食记录，先记录第一餐。",
+            "status_label": "待开始",
+            "status_tone": "neutral",
+            "flags": [],
+            "alerts": [],
+        }
+
+    flags: List[str] = []
+    alerts: List[str] = []
+    actions: List[str] = []
+
+    if out_count > 0:
+        flags.append("out_window")
+        alerts.append("窗口外进食")
+        actions.append("下一餐务必回到窗口内")
+    if meal_count < 3:
+        flags.append("meal_incomplete")
+        alerts.append("三餐未完成")
+        actions.append("按计划补齐今天剩余餐次")
+    if sleep_latest is not None and sleep_latest < 6:
+        flags.append("sleep_low")
+        alerts.append("睡眠不足")
+        actions.append("今晚尽量提前入睡")
+    if exercise_total is not None and exercise_total < 20:
+        flags.append("exercise_low")
+        alerts.append("运动不足")
+        actions.append("补一段快走或拉伸")
+
+    if not flags:
+        return {
+            "focus": "稳定执行",
+            "message": "今天执行稳定，继续按当前节奏保持。",
+            "status_label": "执行稳定",
+            "status_tone": "good",
+            "flags": [],
+            "alerts": [],
+        }
+
+    if "out_window" in flags:
+        focus = "窗口纪律"
+    elif "meal_incomplete" in flags:
+        focus = "餐次完成"
+    elif "sleep_low" in flags:
+        focus = "睡眠修复"
+    else:
+        focus = "运动达标"
+
+    status_tone = "bad" if any(flag in flags for flag in ("out_window", "sleep_low", "exercise_low")) else "neutral"
+    status_label = "需跟进" if status_tone == "bad" else "待完成"
+    attention = "、".join(alerts)
+    message = f"当前需要关注：{attention}。{'；'.join(actions)}。"
+    return {
+        "focus": focus,
+        "message": message,
+        "status_label": status_label,
+        "status_tone": status_tone,
+        "flags": flags,
+        "alerts": alerts,
+    }
+
+
 def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
     plan = data.get("plan", DEFAULT_PLAN)
     meals = [m for m in data.get("meals", []) if m.get("date") == day]
@@ -220,26 +285,23 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
         exercise_total = sum(int(e.get("minutes", 0) or 0) for e in exercise_logs)
 
     if out_count > 0:
-        status = "未达标"
-        reason = "存在进食窗口外进食"
+        execution_status = "未达标"
+        execution_reason = "存在进食窗口外进食"
     elif meals:
-        if sleep_latest is not None and sleep_latest < 6:
-            status = "未达标"
-            reason = "睡眠不足，容易影响执行"
-        elif exercise_total is not None and exercise_total < 20:
-            status = "未达标"
-            reason = "运动不足，建议补一段快走"
-        else:
-            status = "达标"
-            reason = "当天进食均在窗口内"
+        execution_status = "达标"
+        execution_reason = "当天进食均在窗口内"
     else:
-        status = "未记录"
-        reason = "当天暂无进食记录"
+        execution_status = "未记录"
+        execution_reason = "当天暂无进食记录"
+
+    coach = build_coach_review(len(meals), out_count, sleep_latest, exercise_total)
 
     return {
         "date": day,
-        "status": status,
-        "reason": reason,
+        "status": execution_status,
+        "reason": execution_reason,
+        "execution_status": execution_status,
+        "execution_reason": execution_reason,
         "meal_count": len(meals),
         "meal_out_window_count": out_count,
         "fasting_hours": 0.0,
@@ -247,6 +309,12 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "weight": weight_latest,
         "sleep_hours": sleep_latest,
         "exercise_minutes": exercise_total,
+        "coach_focus": coach["focus"],
+        "coach_message": coach["message"],
+        "coach_status": coach["status_label"],
+        "coach_tone": coach["status_tone"],
+        "coach_flags": coach["flags"],
+        "coach_alerts": coach["alerts"],
     }
 
 
@@ -257,8 +325,8 @@ def period_stats(data: Dict[str, Any], days: int) -> Dict[str, Any]:
         d = (today - timedelta(days=i)).strftime(DATE_FMT)
         statuses.append(evaluate_day(d, data))
 
-    ok = sum(1 for s in statuses if s["status"] == "达标")
-    fail = sum(1 for s in statuses if s["status"] == "未达标")
+    ok = sum(1 for s in statuses if s["execution_status"] == "达标")
+    fail = sum(1 for s in statuses if s["execution_status"] == "未达标")
     base = ok + fail
     rate = round((ok / base) * 100, 2) if base else 0.0
     return {"days": days, "ok_days": ok, "fail_days": fail, "rate": rate}
@@ -473,8 +541,11 @@ def export_excel_report(data: Dict[str, Any]) -> None:
     summary_days_rows = [
         [
             s["date"],
-            s["status"],
-            s["reason"],
+            s["execution_status"],
+            s["execution_reason"],
+            s["coach_status"],
+            "、".join(s.get("coach_alerts", [])),
+            s["coach_message"],
             s["meal_count"],
             s["meal_out_window_count"],
             s["fasting_hours"],
@@ -490,7 +561,7 @@ def export_excel_report(data: Dict[str, Any]) -> None:
     sheet3 = _sheet_xml(["日期", "进食时间", "食物", "是否在8小时窗口", "备注"], meal_rows)
     sheet4 = _sheet_xml(["日期", "记录时间", "体重(kg)", "备注"], weight_rows)
     sheet5 = _sheet_xml(
-        ["日期", "状态", "原因", "进食次数", "窗口外进食次数", "断食时长", "体重(kg)", "睡眠(小时)", "运动(分钟)"],
+        ["日期", "执行状态", "执行原因", "教练状态", "教练关注项", "教练建议", "进食次数", "窗口外进食次数", "断食时长", "体重(kg)", "睡眠(小时)", "运动(分钟)"],
         summary_days_rows,
     )
     sheet6 = _sheet_xml(["日期", "记录时间", "睡眠时长(小时)", "备注"], sleep_rows)
@@ -605,7 +676,8 @@ def cmd_end(args: argparse.Namespace) -> None:
     status = "达标" if success else "未达标"
     day_status = evaluate_day(record.date, data)
     print(f"本次断食 {duration} 小时，目标 {args.target} 小时，结果: {status}")
-    print(f"当天状态: {day_status['status']}（{day_status['reason']}）")
+    print(f"当天执行状态: {day_status['execution_status']}（{day_status['execution_reason']}）")
+    print(f"教练复盘: {day_status['coach_status']}（{day_status['coach_message']}）")
 
 
 def cmd_status(_: argparse.Namespace) -> None:
@@ -615,7 +687,8 @@ def cmd_status(_: argparse.Namespace) -> None:
     today = now_local().strftime(DATE_FMT)
     day = evaluate_day(today, data)
     print(f"今日记录进食: {day['meal_count']} 次，窗口外进食: {day['meal_out_window_count']} 次")
-    print(f"今日判定: {day['status']}（{day['reason']}）")
+    print(f"今日执行判定: {day['execution_status']}（{day['execution_reason']}）")
+    print(f"今日教练复盘: {day['coach_status']}（{day['coach_message']}）")
     goal = goal_stats(data)
     print(
         f"目标总览: 开始日={goal['start_date'] or '-'} | 初始={goal['start_weight']} kg | "

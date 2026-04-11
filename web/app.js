@@ -146,11 +146,16 @@ function goalMessage(goal) {
   };
 }
 
+function executionStatusOf(today) {
+  return today?.execution_status || today?.status || "未记录";
+}
+
 function todayActionCopy(today) {
   const mealCount = Number(today.meal_count || 0);
   const hasWeight = today.weight !== null && today.weight !== undefined;
+  const executionStatus = executionStatusOf(today);
 
-  if (today.status === "未达标") {
+  if (executionStatus === "未达标") {
     return {
       title: "今天有偏离",
       reason: "已经出现窗口外进食，下一餐回到窗口内就行。",
@@ -161,7 +166,7 @@ function todayActionCopy(today) {
     };
   }
 
-  if (today.status === "达标") {
+  if (executionStatus === "达标") {
     return {
       title: "今天执行正常",
       reason: "今天所有进食都在窗口内，继续保持。",
@@ -501,10 +506,10 @@ function renderCoach(data) {
   focusEl.textContent = coach.focus || "执行重点";
   msgEl.textContent = coach.message || "保持节奏，优先完成三餐记录。";
 
-  const statusClass =
-    today.status === "未达标" ? "status-bad" : today.status === "达标" ? "status-good" : "status-neutral";
+  const tone = coach.status_tone || "neutral";
+  const statusClass = tone === "bad" ? "status-bad" : tone === "good" ? "status-good" : "status-neutral";
   statusEl.className = `status-badge ${statusClass}`;
-  statusEl.textContent = today.status === "未达标" ? "需要调整" : today.status === "达标" ? "执行正常" : "待跟进";
+  statusEl.textContent = coach.status_label || "待跟进";
 
   document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;

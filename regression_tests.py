@@ -14,6 +14,7 @@ import threading
 import unittest
 import urllib.request
 import zipfile
+from datetime import datetime
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -55,17 +56,11 @@ class RegressionTests(unittest.TestCase):
         out = self._run_cli("set-window", "--start", "09:30", "--hours", "8")
         self.assertIn("已设置进食窗口", out)
 
-        out = self._run_cli("start", "--time", "2026-04-08 20:00")
-        self.assertIn("已开始断食", out)
-
-        out = self._run_cli("meal", "--food", "鸡蛋+牛奶", "--time", "2026-04-08 21:00", "--note", "加餐")
+        out = self._run_cli("meal", "--food", "鸡蛋+牛奶", "--time", "2026-04-08 12:00", "--note", "午餐")
         self.assertIn("已记录进食", out)
 
         out = self._run_cli("weight", "--value", "72.5", "--time", "2026-04-08 07:30")
         self.assertIn("已记录体重", out)
-
-        out = self._run_cli("end", "--time", "2026-04-09 12:30", "--target", "16", "--note", "回归测试")
-        self.assertIn("结果: 达标", out)
 
         out = self._run_cli("history", "--days", "3")
         self.assertIn("体重记录:", out)
@@ -76,7 +71,7 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(data.get("goal", {}).get("start_date"), "2026-04-01")
         self.assertEqual(data.get("goal", {}).get("end_date"), "2026-06-01")
         self.assertEqual(data.get("plan", {}).get("start"), "09:30")
-        self.assertEqual(len(data.get("records", [])), 1)
+        self.assertEqual(len(data.get("records", [])), 0)
         self.assertEqual(len(data.get("meals", [])), 1)
         self.assertEqual(len(data.get("weight_logs", [])), 1)
         self.assertNotIn("waist_logs", data)
@@ -94,6 +89,38 @@ class RegressionTests(unittest.TestCase):
         self.assertIn("xl/worksheets/sheet7.xml", names)
         self.assertNotIn("xl/worksheets/sheet8.xml", names)
 
+    def test_day_status_semantics(self) -> None:
+        old_cwd = Path.cwd()
+        os.chdir(self.tmpdir)
+        sys.path.insert(0, str(self.tmpdir))
+        try:
+            tracker = importlib.import_module("fasting_tracker")
+            today = datetime.now().strftime("%Y-%m-%d")
+            data = tracker.load_data()
+            data["plan"] = {"start": "09:00", "hours": 8}
+            data["meals"].append({"date": today, "time": f"{today} 11:00", "food": "鸡蛋", "note": ""})
+            data["sleep_logs"].append({"date": today, "time": f"{today} 07:00", "hours": 5.5, "note": ""})
+            data["exercise_logs"].append({"date": today, "time": f"{today} 19:00", "minutes": 10, "kind": "步行", "note": ""})
+
+            day = tracker.evaluate_day(today, data)
+            week = tracker.period_stats(data, 7)
+
+            self.assertEqual(day["execution_status"], "达标")
+            self.assertEqual(day["status"], "达标")
+            self.assertEqual(day["execution_reason"], "当天进食均在窗口内")
+            self.assertIn("meal_incomplete", day["coach_flags"])
+            self.assertIn("sleep_low", day["coach_flags"])
+            self.assertIn("exercise_low", day["coach_flags"])
+            self.assertEqual(day["coach_status"], "需跟进")
+            self.assertEqual(week["ok_days"], 1)
+            self.assertEqual(week["fail_days"], 0)
+        finally:
+            if str(self.tmpdir) in sys.path:
+                sys.path.remove(str(self.tmpdir))
+            if "fasting_tracker" in sys.modules:
+                del sys.modules["fasting_tracker"]
+            os.chdir(old_cwd)
+
     def test_api_regression(self) -> None:
         old_cwd = Path.cwd()
         os.chdir(self.tmpdir)
@@ -102,6 +129,7 @@ class RegressionTests(unittest.TestCase):
         thread = None
         try:
             mobile_server = importlib.import_module("mobile_server")
+            today = datetime.now().strftime("%Y-%m-%d")
             server = ThreadingHTTPServer(("127.0.0.1", 0), mobile_server.TrackerHandler)
             port = server.server_address[1]
             thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -133,24 +161,18 @@ class RegressionTests(unittest.TestCase):
             data = post("/api/goal", {"start_date": "2026-04-01", "end_date": "2026-06-01", "start_weight": 78, "target_weight": 65})
             self.assertTrue(data["ok"])
 
-            data = post("/api/start", {"time": "2026-04-08 20:00"})
+            data = post("/api/meal", {"food": "燕麦+牛奶", "time": f"{today} 11:10", "note": "午餐"})
+            self.assertTrue(data["ok"])
+            self.assertTrue(data["in_window"])
+
+            data = post("/api/weight", {"value": 71.8, "time": f"{today} 07:20", "note": "晨重"})
             self.assertTrue(data["ok"])
 
-            data = post("/api/meal", {"food": "燕麦+牛奶", "time": "2026-04-08 21:10", "note": "晚餐"})
+            data = post("/api/sleep", {"hours": 5.5, "time": f"{today} 06:50", "note": "一键打卡:睡眠<6h"})
             self.assertTrue(data["ok"])
 
-            data = post("/api/weight", {"value": 71.8, "time": "2026-04-08 07:20", "note": "晨重"})
+            data = post("/api/exercise", {"minutes": 10, "time": f"{today} 19:10", "kind": "快走", "note": "一键打卡:运动10分钟"})
             self.assertTrue(data["ok"])
-
-            data = post("/api/sleep", {"hours": 6.5, "note": "一键打卡:睡眠6-7h"})
-            self.assertTrue(data["ok"])
-
-            data = post("/api/exercise", {"minutes": 20, "kind": "快走", "note": "一键打卡:运动20分钟"})
-            self.assertTrue(data["ok"])
-
-            data = post("/api/end", {"time": "2026-04-09 12:30", "target": 16, "note": "API回归"})
-            self.assertTrue(data["ok"])
-            self.assertTrue(data["success"])
 
             final_status = get("/api/status")
             self.assertEqual(final_status["plan"]["start"], "09:00")
@@ -159,7 +181,7 @@ class RegressionTests(unittest.TestCase):
             self.assertIn("cycle_total_days", final_status["goal"])
             self.assertIn("cycle_time_progress", final_status["goal"])
             self.assertIn("pace_status", final_status["goal"])
-            self.assertEqual(len(final_status["records"]), 1)
+            self.assertEqual(len(final_status["records"]), 0)
             self.assertEqual(len(final_status["meals"]), 1)
             self.assertEqual(len(final_status["weights"]), 1)
             self.assertEqual(len(final_status["sleeps"]), 1)
@@ -169,6 +191,15 @@ class RegressionTests(unittest.TestCase):
             self.assertIn("today", final_status)
             self.assertIn("week_stats", final_status)
             self.assertIn("weight_7", final_status)
+            self.assertEqual(final_status["today"]["execution_status"], "达标")
+            self.assertEqual(final_status["today"]["status"], "达标")
+            self.assertEqual(final_status["today"]["coach_status"], "需跟进")
+            self.assertIn("meal_incomplete", final_status["today"]["coach_flags"])
+            self.assertIn("sleep_low", final_status["today"]["coach_flags"])
+            self.assertIn("exercise_low", final_status["today"]["coach_flags"])
+            self.assertEqual(final_status["coach"]["status_tone"], "bad")
+            self.assertEqual(final_status["week_stats"]["ok_days"], 1)
+            self.assertEqual(final_status["week_stats"]["fail_days"], 0)
 
             self.assertTrue((self.tmpdir / "fasting_report.xlsx").exists())
         finally:

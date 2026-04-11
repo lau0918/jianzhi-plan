@@ -8,7 +8,7 @@
 - 每次进食记录（时间、食物、备注）
 - 每日体重记录与周期趋势统计
 - 目标总览（开始日期、初始体重、目标体重、当前体重、是否达标）
-- 教练复盘（睡眠 / 运动的一键打卡与当日建议）
+- 教练复盘（睡眠 / 运动 / 餐次建议，不改写 8+16 主执行结果）
 - 自动导出 Excel 分析文件
 - 可选同步到 Notion（Meals / Weights / Goals / Sleep / Exercise）
 - 可选 Telegram 三餐提醒（基于 Notion）
@@ -83,6 +83,29 @@ python3 regression_tests.py
 
 测试在临时目录执行，不会污染你当前数据文件。
 
+## 线上部署环境变量
+
+### Railway / Web 服务
+
+- `AUTH_TOKEN`：前端写入保护密钥，建议线上必须配置
+- `NOTION_TOKEN`：Notion 集成密钥
+- `NOTION_MEALS_DB`：进食表数据库 ID
+- `NOTION_WEIGHTS_DB`：体重表数据库 ID
+- `NOTION_GOALS_DB`：目标表数据库 ID
+- `NOTION_SLEEP_DB`：睡眠表数据库 ID（可选）
+- `NOTION_EXERCISE_DB`：运动表数据库 ID（可选）
+- `HOST`：可选，默认 `0.0.0.0`
+- `PORT`：平台注入，Railway 会自动提供
+
+### GitHub Actions / Telegram 提醒
+
+- `NOTION_TOKEN`
+- `NOTION_MEALS_DB`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `REMINDER_WINDOW`（例如 `07:00-15:00`，可选）
+- `TZ`（建议 `Asia/Shanghai`）
+
 ## Telegram 提醒（Notion 数据源）
 
 提醒脚本会在固定时间发送三次提醒，帮助你在进食窗口内完成三餐记录。推荐用 GitHub Actions 定时执行。
@@ -91,11 +114,10 @@ python3 regression_tests.py
 
 - `NOTION_TOKEN`
 - `NOTION_MEALS_DB`
-- `NOTION_SLEEP_DB`（可选）
-- `NOTION_EXERCISE_DB`（可选）
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `REMINDER_WINDOW`（例如 `07:00-15:00`，可选）
+- `TZ`（建议 `Asia/Shanghai`）
 
 定时任务已在 `.github/workflows/reminder.yml` 中设置为：
 
