@@ -183,7 +183,7 @@ function goalMessage(goal) {
   if (!goal || goal.current_weight == null || goal.target_weight == null) {
     return {
       headline: "先设置减脂目标",
-      subline: "设置后显示目标进度",
+      subline: "设置后显示进度",
     };
   }
 
@@ -195,8 +195,8 @@ function goalMessage(goal) {
 
   if (goal.pace_status === "behind" || (hasStart && hasCurrent && current > start)) {
     return {
-      headline: "出现反弹，先稳住",
-      subline: "先回到窗口内进食",
+      headline: "出现反弹",
+      subline: "先稳住",
     };
   }
 
@@ -206,7 +206,7 @@ function goalMessage(goal) {
       subline:
         goal.lost_weight != null
           ? `较起始 -${fmtWeightAbs(goal.lost_weight)}`
-          : "保持当前节奏",
+          : "保持节奏",
     };
   }
 
@@ -216,13 +216,13 @@ function goalMessage(goal) {
       subline:
         goal.lost_weight != null
           ? `较起始 -${fmtWeightAbs(goal.lost_weight)}`
-          : "继续执行",
+          : "继续减脂",
     };
   }
 
   return {
     headline: "先设置减脂目标",
-    subline: "设置后显示目标进度",
+    subline: "设置后显示进度",
   };
 }
 
@@ -285,7 +285,7 @@ function todayActionCopy(today, plan) {
     return {
       title: "今天有偏离",
       reason: windowState.inWindow
-        ? "下一餐回到窗口内"
+        ? "下一餐回窗口内"
         : `先喝水 · 等 ${windowState.start}`,
       badgeLabel: "需要调整",
       badgeClass: "status-bad",
@@ -298,8 +298,8 @@ function todayActionCopy(today, plan) {
     return {
       title: windowState.inWindow ? "现在可以进食" : "正在断食",
       reason: windowState.inWindow
-        ? `窗口剩余 ${fmtDurationMinutes(windowState.minutesLeft)}`
-        : `只喝水 · 还有 ${fmtDurationMinutes(windowState.minutesLeft)}`,
+        ? `剩余 ${fmtDurationMinutes(windowState.minutesLeft)}`
+        : `只喝水 · ${fmtDurationMinutes(windowState.minutesLeft)}`,
       badgeLabel: "进行顺利",
       badgeClass: "status-good",
       mealButton: windowState.inWindow ? "记录这一餐" : "记录进食",
@@ -312,7 +312,7 @@ function todayActionCopy(today, plan) {
       title: windowState.inWindow ? "现在可以进食" : "正在断食",
       reason: windowState.inWindow
         ? `先记录第一餐`
-        : `只喝水 · 还有 ${fmtDurationMinutes(windowState.minutesLeft)}`,
+        : `只喝水 · ${fmtDurationMinutes(windowState.minutesLeft)}`,
       badgeLabel: "待完成",
       badgeClass: "status-neutral",
       mealButton: windowState.inWindow ? "记录第一餐" : "记录进食",
@@ -324,7 +324,7 @@ function todayActionCopy(today, plan) {
     title: windowState.inWindow ? "现在可以进食" : "正在断食",
     reason: windowState.inWindow
       ? "先记录第一餐"
-      : `只喝水 · 还有 ${fmtDurationMinutes(windowState.minutesLeft)}`,
+      : `只喝水 · ${fmtDurationMinutes(windowState.minutesLeft)}`,
     badgeLabel: "待开始",
     badgeClass: "status-neutral",
     mealButton: windowState.inWindow ? "记录第一餐" : "记录进食",
@@ -667,6 +667,15 @@ function renderCoach(data) {
 
   document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
+  if (tone === "bad") {
+    msgEl.textContent = "先处理偏离";
+  } else if (tone === "good") {
+    msgEl.textContent = "继续保持";
+  } else if (tone === "neutral") {
+    msgEl.textContent = "补齐今天";
+  } else {
+    msgEl.textContent = (coach.message || "睡眠与运动可选").split("。")[0];
+  }
 }
 
 function goalFilled(goal) {
