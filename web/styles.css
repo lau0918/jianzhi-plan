@@ -1,18 +1,18 @@
 :root {
-  --bg: #f2f6fa;
-  --bg-strong: #e8eef6;
+  --bg: #eff3f4;
+  --bg-strong: #e8edee;
   --card: #ffffff;
-  --card-soft: #f6f9fd;
-  --line: #dce5ef;
-  --text: #111827;
-  --sub: #687386;
-  --blue: #007aff;
-  --blue-deep: #0057c2;
+  --card-soft: #f7f9fa;
+  --line: #d9dfe3;
+  --text: #0f1419;
+  --sub: #536471;
+  --blue: #1d9bf0;
+  --blue-deep: #1a8cd8;
   --green: #16a163;
   --red: #d13438;
   --orange: #f79009;
-  --shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 18px rgba(17, 24, 39, 0.05);
-  --soft-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow: 0 0 0 rgba(0, 0, 0, 0);
+  --soft-shadow: 0 0 0 rgba(0, 0, 0, 0);
 }
 
 * {
@@ -21,7 +21,7 @@
 
 body {
   margin: 0;
-  background: linear-gradient(180deg, #fbfdff 0%, var(--bg) 42%, #edf3f9 100%);
+  background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif;
   -webkit-text-size-adjust: 100%;
@@ -31,9 +31,9 @@ body {
 .page {
   width: min(680px, 100%);
   margin: 0 auto;
-  padding: 10px 10px 88px;
+  padding: 8px 8px 88px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .hero-shell {
@@ -52,15 +52,15 @@ body {
 
 .hero-card {
   border-radius: 8px;
-  padding: 14px;
+  padding: 12px;
   border-top: 0;
 }
 
 .today-hero-card {
   position: relative;
-  border: 1px solid #cfe4ff;
+  border: 1px solid #c7d8e8;
   border-left: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f4f9ff 52%, #eef7ff 100%);
+  background: #fff;
 }
 
 .today-hero-card::before {
@@ -72,8 +72,8 @@ body {
 }
 
 .today-hero-card.today-good {
-  border-color: #c7efd8;
-  background: linear-gradient(135deg, #ffffff 0%, #f4fff8 58%, #effcf4 100%);
+  border-color: #cae9d8;
+  background: #fff;
 }
 
 .today-hero-card.today-good::before {
@@ -81,8 +81,8 @@ body {
 }
 
 .today-hero-card.today-bad {
-  border-color: #ffd3d3;
-  background: linear-gradient(135deg, #ffffff 0%, #fff8f8 58%, #fff1f1 100%);
+  border-color: #f5cccc;
+  background: #fff;
 }
 
 .today-hero-card.today-bad::before {
@@ -122,7 +122,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .hero-actions {
@@ -137,7 +137,7 @@ body {
 .day-card-sub {
   margin: 0;
   color: var(--sub);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0;
   font-weight: 600;
 }
@@ -147,7 +147,7 @@ body {
   border: 0;
   background: transparent;
   color: var(--blue-deep);
-  font-size: 14px;
+  font-size: 13px;
   min-height: 32px;
   padding: 0 6px;
 }
@@ -160,7 +160,7 @@ body {
 
 h1 {
   margin: 6px 0 0;
-  font-size: 34px;
+  font-size: 32px;
   line-height: 1.08;
   letter-spacing: 0;
   font-weight: 760;
@@ -169,7 +169,7 @@ h1 {
 
 h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   letter-spacing: 0;
   font-weight: 730;
 }
@@ -186,7 +186,7 @@ h4 {
 .toast {
   margin: 0;
   color: var(--sub);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -364,7 +364,7 @@ h4 {
   padding: 10px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(0, 122, 255, 0.12);
+  border: 1px solid #dde6ee;
 }
 
 .window-time-labels {
@@ -380,14 +380,14 @@ h4 {
   position: relative;
   height: 8px;
   border-radius: 8px;
-  background: #dfeaf6;
+  background: #e3e8ee;
 }
 
 .window-progress-fill {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--blue), #4cc9f0);
+  background: linear-gradient(90deg, #1d9bf0, #63baf3);
   transition: width 0.35s ease;
 }
 
@@ -399,8 +399,8 @@ h4 {
   height: 16px;
   border: 3px solid #fff;
   border-radius: 8px;
-  background: var(--blue);
-  box-shadow: 0 2px 8px rgba(0, 91, 190, 0.24);
+  background: #1d9bf0;
+  box-shadow: 0 1px 4px rgba(29, 155, 240, 0.28);
   transform: translate(-50%, -50%);
   transition: left 0.35s ease;
 }
@@ -413,7 +413,7 @@ h4 {
 }
 
 .micro-rule {
-  color: #7b8798;
+  color: #778390;
   font-size: 12px;
 }
 
@@ -465,7 +465,7 @@ h4 {
 .coach-bar-track {
   height: 8px;
   border-radius: 8px;
-  background: #e4ebf5;
+  background: #e5eaf0;
   overflow: hidden;
 }
 
@@ -473,7 +473,7 @@ h4 {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--blue), #22c55e);
+  background: linear-gradient(90deg, #1d9bf0, #16a163);
   transition: width 0.35s ease;
 }
 
@@ -490,9 +490,9 @@ h4 {
 
 .status-badge {
   padding: 6px 10px;
-  min-height: 30px;
+  min-height: 28px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -501,24 +501,24 @@ h4 {
 }
 
 .status-good {
-  color: #087443;
-  background: #eafaf1;
+  color: #0f8a4f;
+  background: #eefbf4;
 }
 
 .status-bad {
-  color: #b42318;
-  background: #fff0f0;
+  color: #c9312c;
+  background: #fff3f2;
 }
 
 .status-neutral {
-  color: #344054;
-  background: #eef2f7;
+  color: #44515f;
+  background: #eef3f6;
 }
 
 .status-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-top: 8px;
 }
 
@@ -535,19 +535,19 @@ h4 {
 .status-actions {
   display: grid;
   grid-template-columns: 1.25fr 0.85fr;
-  gap: 10px;
+  gap: 8px;
   margin-top: 12px;
 }
 
 .next-action-panel .primary-btn {
   min-height: 50px;
-  font-size: 17px;
+  font-size: 16px;
 }
 
 .next-action-panel .secondary-btn {
   min-height: 50px;
-  color: #344054;
-  background: rgba(255, 255, 255, 0.72);
+  color: #44515f;
+  background: #fff;
 }
 
 .goal-summary-card .hero-summary {
@@ -577,8 +577,8 @@ h4 {
 .goal-progress-number {
   display: block;
   margin-top: 2px;
-  color: var(--blue-deep);
-  font-size: 32px;
+  color: #0f1419;
+  font-size: 36px;
   line-height: 1;
 }
 
@@ -591,7 +591,7 @@ h4 {
 
 .goal-progress-copy .hero-footnote {
   margin-top: 0;
-  color: var(--text);
+  color: #1f2a35;
   font-weight: 700;
 }
 
@@ -601,7 +601,7 @@ h4 {
   justify-content: space-between;
   gap: 8px;
   margin: 0;
-  color: #526073;
+  color: #536471;
   font-size: 13px;
   font-weight: 650;
 }
@@ -611,19 +611,20 @@ h4 {
 }
 
 .route-arrow {
-  color: #9aa6b6;
+  color: #7d8b99;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 26px;
+  padding: 0 8px;
   border-radius: 8px;
-  background: #eef6ff;
-  color: #24508e;
-  font-size: 11px;
-  font-weight: 600;
+  background: #fff;
+  border: 1px solid #d6e7f6;
+  color: #3f556b;
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .feed-card {
@@ -642,7 +643,7 @@ h4 {
   margin-top: 8px;
   height: 7px;
   border-radius: 8px;
-  background: #e8eef7;
+  background: #e5eaf0;
   overflow: hidden;
 }
 
@@ -650,12 +651,12 @@ h4 {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #9bc8ff, #ff9191);
+  background: linear-gradient(90deg, #9fc9ee, #e78282);
   transition: width 0.35s ease;
 }
 
 .reminder-item {
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--card-soft);
@@ -682,7 +683,7 @@ h4 {
 }
 
 .reminder-item-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -957,9 +958,9 @@ button:focus-visible {
 
 .primary-btn {
   border: 0;
-  background: linear-gradient(180deg, #1688ff 0%, var(--blue) 48%, #0064d8 100%);
+  background: linear-gradient(180deg, #2a9df4 0%, #1d90e2 58%, #157ec7 100%);
   color: #fff;
-  box-shadow: 0 5px 12px rgba(0, 102, 214, 0.2);
+  box-shadow: 0 2px 8px rgba(21, 126, 199, 0.22);
 }
 
 .toast {
