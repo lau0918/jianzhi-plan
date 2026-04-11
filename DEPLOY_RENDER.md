@@ -27,3 +27,10 @@ https://<service-name>.onrender.com
 1. 页面打不开：确认部署日志里没有报错，且服务状态为 `Live`
 2. 仍访问本地 IP：确保使用 Render 域名，不要用 `192.168.x.x`
 3. 写入接口未授权：需要配置 `AUTH_TOKEN` 并在浏览器保存
+
+## Notion 同步（可选）
+配置环境变量：
+- `NOTION_TOKEN`
+- `NOTION_MEALS_DB`
+- `NOTION_WEIGHTS_DB`
+- `NOTION_GOALS_DB`

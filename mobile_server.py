@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import urllib.request
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -36,6 +37,91 @@ from fasting_tracker import (
 
 WEB_DIR = Path(__file__).parent / "web"
 AUTH_TOKEN = os.getenv("AUTH_TOKEN", "").strip()
+NOTION_TOKEN = os.getenv("NOTION_TOKEN", "").strip()
+NOTION_MEALS_DB = os.getenv("NOTION_MEALS_DB", "").strip()
+NOTION_WEIGHTS_DB = os.getenv("NOTION_WEIGHTS_DB", "").strip()
+NOTION_GOALS_DB = os.getenv("NOTION_GOALS_DB", "").strip()
+
+
+def _notion_enabled() -> bool:
+    return bool(NOTION_TOKEN and (NOTION_MEALS_DB or NOTION_WEIGHTS_DB or NOTION_GOALS_DB))
+
+
+def _notion_datetime(value: str) -> str:
+    # value: "YYYY-MM-DD HH:MM"
+    return value.replace(" ", "T") + ":00"
+
+
+def _notion_create_page(database_id: str, properties: Dict[str, Any]) -> None:
+    if not NOTION_TOKEN or not database_id:
+        return
+    payload = {"parent": {"database_id": database_id}, "properties": properties}
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.notion.com/v1/pages",
+        data=data,
+        headers={
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            resp.read()
+    except Exception as exc:
+        print(f"警告: Notion 写入失败: {exc}")
+
+
+def _notion_sync_meal(meal: MealRecord, in_window: bool) -> None:
+    if not NOTION_MEALS_DB:
+        return
+    props = {
+        "食物": {"title": [{"text": {"content": meal.food}}]},
+        "时间": {"date": {"start": _notion_datetime(meal.time)}},
+        "窗口状态": {"select": {"name": "窗口内" if in_window else "窗口外"}},
+        "备注": {"rich_text": [{"text": {"content": meal.note or ""}}]},
+    }
+    _notion_create_page(NOTION_MEALS_DB, props)
+
+
+def _notion_sync_weight(item: WeightRecord) -> None:
+    if not NOTION_WEIGHTS_DB:
+        return
+    props = {
+        "体重记录": {"title": [{"text": {"content": f"{item.weight}kg"}}]},
+        "时间": {"date": {"start": _notion_datetime(item.time)}},
+        "体重(kg)": {"number": item.weight},
+        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
+    }
+    _notion_create_page(NOTION_WEIGHTS_DB, props)
+
+
+def _notion_sync_goal(goal: Dict[str, Any]) -> None:
+    if not NOTION_GOALS_DB:
+        return
+    title = f"{goal.get('start_date') or '-'} ~ {goal.get('end_date') or '-'}"
+    props = {
+        "周期": {"title": [{"text": {"content": title}}]},
+        "开始日期": {"date": {"start": goal.get("start_date")}} if goal.get("start_date") else None,
+        "结束日期": {"date": {"start": goal.get("end_date")}} if goal.get("end_date") else None,
+        "初始体重": {"number": goal.get("start_weight")},
+        "目标体重": {"number": goal.get("target_weight")},
+        "当前体重": {"number": goal.get("current_weight")},
+        "目标进度(%)": {"number": goal.get("progress_percent")},
+        "节奏判定": {"select": {"name": _goal_pace_label(goal.get("pace_status"))}},
+    }
+    clean_props = {k: v for k, v in props.items() if v is not None}
+    _notion_create_page(NOTION_GOALS_DB, clean_props)
+
+
+def _goal_pace_label(value: str) -> str:
+    if value in ("reached",):
+        return "已达标"
+    if value in ("behind", "missed"):
+        return "需调整"
+    return "周期内有望达标"
 
 
 class TrackerHandler(BaseHTTPRequestHandler):
@@ -267,6 +353,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
         save_data(data)
 
         in_window = is_meal_in_window(meal.time, data.get("plan", DEFAULT_PLAN))
+        if _notion_enabled():
+            _notion_sync_meal(meal, in_window)
         return self._json_response(
             {
                 "ok": True,
@@ -299,6 +387,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
         data.setdefault("weight_logs", []).append(asdict(item))
         save_data(data)
 
+        if _notion_enabled():
+            _notion_sync_weight(item)
         return self._json_response({"ok": True, "message": f"已记录体重: {item.time} | {item.weight} kg"})
 
     def _handle_window(self, body: Dict[str, Any]) -> None:
@@ -362,6 +452,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
             "target_weight": round(target_weight, 2),
         }
         save_data(data)
+        if _notion_enabled():
+            _notion_sync_goal(goal_stats(data))
         return self._json_response({"ok": True, "message": "已保存减脂目标"})
 
 
