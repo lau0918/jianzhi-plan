@@ -4,6 +4,7 @@ const state = {
   feedDefaultLimit: 5,
   feedExpanded: false,
   expandedDays: new Set(),
+  actionLocks: Object.create(null),
 };
 
 function setMessage(text, isError = false) {
@@ -22,6 +23,49 @@ function parseJsonSafe(text) {
   } catch (_) {
     return {};
   }
+}
+
+function withThrottle(actionKey, fn) {
+  const now = Date.now();
+  const last = Number(state.actionLocks[actionKey] || 0);
+  if (now - last < 800) return Promise.resolve(null);
+  state.actionLocks[actionKey] = now;
+  return Promise.resolve().then(fn);
+}
+
+function hasUnsavedInput(sheetId) {
+  const sheet = document.getElementById(sheetId);
+  if (!sheet) return false;
+  const fields = sheet.querySelectorAll("input, textarea, select");
+  for (const field of fields) {
+    if (field.disabled) continue;
+    const current = String(field.value || "");
+    const initial = String(field.defaultValue || "");
+    if (current !== initial && current.trim() !== "") return true;
+  }
+  return false;
+}
+
+function closeSheet(id, opts = {}) {
+  const { force = false } = opts;
+  if (!force && hasUnsavedInput(id)) {
+    const ok = window.confirm("当前内容未保存，确认离开？");
+    if (!ok) return false;
+  }
+  document.getElementById(id).classList.add("hidden");
+  const openSheets = Array.from(document.querySelectorAll(".sheet")).some((el) => !el.classList.contains("hidden"));
+  if (!openSheets) document.getElementById("sheetMask").classList.add("hidden");
+  return true;
+}
+
+function closeAllSheets(opts = {}) {
+  const openSheets = Array.from(document.querySelectorAll(".sheet")).filter((el) => !el.classList.contains("hidden"));
+  for (const sheet of openSheets) {
+    const closed = closeSheet(sheet.id, opts);
+    if (!closed) return false;
+  }
+  document.getElementById("sheetMask").classList.add("hidden");
+  return true;
 }
 
 async function readApiResponse(res) {
@@ -413,22 +457,28 @@ function appendReminderItem(container, tone, title, detail) {
   container.appendChild(item);
 }
 
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const safe = value == null ? "" : String(value);
+  el.value = safe;
+  el.defaultValue = safe;
+}
+
 function openSheet(id) {
   document.getElementById("sheetMask").classList.remove("hidden");
   document.getElementById(id).classList.remove("hidden");
-  if (id === "mealSheet") document.getElementById("mealTimeInput").value ||= nowLocalInputValue();
-  if (id === "weightSheet") document.getElementById("weightTimeInput").value ||= nowLocalInputValue();
-}
-
-function closeSheet(id) {
-  document.getElementById(id).classList.add("hidden");
-  const openSheets = Array.from(document.querySelectorAll(".sheet")).some((el) => !el.classList.contains("hidden"));
-  if (!openSheets) document.getElementById("sheetMask").classList.add("hidden");
-}
-
-function closeAllSheets() {
-  document.querySelectorAll(".sheet").forEach((el) => el.classList.add("hidden"));
-  document.getElementById("sheetMask").classList.add("hidden");
+  if (id === "mealSheet") {
+    const el = document.getElementById("mealTimeInput");
+    if (!el.value) setInputValue("mealTimeInput", nowLocalInputValue());
+  }
+  if (id === "weightSheet") {
+    const el = document.getElementById("weightTimeInput");
+    if (!el.value) setInputValue("weightTimeInput", nowLocalInputValue());
+  }
+  if (id === "authSheet") {
+    setInputValue("authTokenInput", getAuthToken());
+  }
 }
 
 function renderHero(data) {
@@ -511,14 +561,14 @@ function renderToday(data) {
   document.getElementById("quickMealBtn").textContent = copy.mealButton;
   document.getElementById("quickWeightBtn").textContent = copy.weightButton;
 
-  document.getElementById("windowStartInput").value = plan.start || "10:00";
-  document.getElementById("windowHoursInput").value = plan.hours || 8;
+  setInputValue("windowStartInput", plan.start || "10:00");
+  setInputValue("windowHoursInput", plan.hours || 8);
 
   if (goalFilled(data.goal)) {
-    document.getElementById("goalStartDateInput").value = data.goal.start_date || "";
-    document.getElementById("goalEndDateInput").value = data.goal.end_date || "";
-    document.getElementById("goalStartWeightInput").value = data.goal.start_weight ?? "";
-    document.getElementById("goalTargetWeightInput").value = data.goal.target_weight ?? "";
+    setInputValue("goalStartDateInput", data.goal.start_date || "");
+    setInputValue("goalEndDateInput", data.goal.end_date || "");
+    setInputValue("goalStartWeightInput", data.goal.start_weight ?? "");
+    setInputValue("goalTargetWeightInput", data.goal.target_weight ?? "");
   }
 }
 
@@ -746,17 +796,19 @@ async function onMealSubmit() {
     return;
   }
 
-  try {
-    const data = await apiPost("/api/meal", { food, note, time });
-    setMessage(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", !data.in_window);
-    document.getElementById("mealFoodInput").value = "";
-    document.getElementById("mealTimeInput").value = "";
-    document.getElementById("mealNoteInput").value = "";
-    closeSheet("mealSheet");
-    await refreshStatus();
-  } catch (err) {
-    setMessage(err.message, true);
-  }
+  await withThrottle("saveMeal", async () => {
+    try {
+      const data = await apiPost("/api/meal", { food, note, time });
+      setMessage(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", !data.in_window);
+      setInputValue("mealFoodInput", "");
+      setInputValue("mealTimeInput", "");
+      setInputValue("mealNoteInput", "");
+      closeSheet("mealSheet", { force: true });
+      await refreshStatus();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
 }
 
 async function onWeightSubmit() {
@@ -768,40 +820,50 @@ async function onWeightSubmit() {
     return;
   }
 
-  try {
-    await apiPost("/api/weight", { value, note, time });
-    setMessage("已记录体重");
-    document.getElementById("weightValueInput").value = "";
-    document.getElementById("weightTimeInput").value = "";
-    document.getElementById("weightNoteInput").value = "";
-    closeSheet("weightSheet");
-    await refreshStatus();
-  } catch (err) {
-    setMessage(err.message, true);
-  }
-}
-
-function onSleepPreset(hours, label) {
-  return async () => {
+  await withThrottle("saveWeight", async () => {
     try {
-      await apiPost("/api/sleep", { hours, note: `一键打卡:${label}` });
-      setMessage(`已记录睡眠：${label}`);
+      await apiPost("/api/weight", { value, note, time });
+      setMessage("已记录体重");
+      setInputValue("weightValueInput", "");
+      setInputValue("weightTimeInput", "");
+      setInputValue("weightNoteInput", "");
+      closeSheet("weightSheet", { force: true });
       await refreshStatus();
     } catch (err) {
       setMessage(err.message, true);
     }
+  });
+}
+
+function onSleepPreset(hours, label) {
+  return async () => {
+    const confirmed = window.confirm(`确认提交：${label}？`);
+    if (!confirmed) return;
+    await withThrottle(`sleep-${hours}`, async () => {
+      try {
+        await apiPost("/api/sleep", { hours, note: `一键打卡:${label}` });
+        setMessage(`已记录睡眠：${label}`);
+        await refreshStatus();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
   };
 }
 
 function onExercisePreset(minutes, label) {
   return async () => {
-    try {
-      await apiPost("/api/exercise", { minutes, kind: "快走", note: `一键打卡:${label}` });
-      setMessage(`已记录运动：${label}`);
-      await refreshStatus();
-    } catch (err) {
-      setMessage(err.message, true);
-    }
+    const confirmed = window.confirm(`确认提交：${label}？`);
+    if (!confirmed) return;
+    await withThrottle(`exercise-${minutes}`, async () => {
+      try {
+        await apiPost("/api/exercise", { minutes, kind: "快走", note: `一键打卡:${label}` });
+        setMessage(`已记录运动：${label}`);
+        await refreshStatus();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
   };
 }
 
@@ -822,23 +884,26 @@ async function onSaveSetting() {
     return;
   }
 
-  try {
-    await apiPost("/api/goal", {
-      start_date: startDate,
-      end_date: endDate,
-      start_weight: startWeight,
-      target_weight: targetWeight,
-    });
-    await apiPost("/api/window", { start, hours });
-    setMessage("已保存设置");
-    closeSheet("settingSheet");
-    await refreshStatus();
-  } catch (err) {
-    setMessage(err.message, true);
-  }
+  await withThrottle("saveSetting", async () => {
+    try {
+      await apiPost("/api/goal", {
+        start_date: startDate,
+        end_date: endDate,
+        start_weight: startWeight,
+        target_weight: targetWeight,
+      });
+      await apiPost("/api/window", { start, hours });
+      setMessage("已保存设置");
+      closeSheet("settingSheet", { force: true });
+      await refreshStatus();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
 }
 
 function setupEvents() {
+  document.getElementById("openAuthBtn").addEventListener("click", () => openSheet("authSheet"));
   document.getElementById("openSettingBtn").addEventListener("click", () => openSheet("settingSheet"));
   document.getElementById("quickMealBtn").addEventListener("click", () => openSheet("mealSheet"));
   document.getElementById("quickWeightBtn").addEventListener("click", () => openSheet("weightSheet"));
@@ -847,21 +912,22 @@ function setupEvents() {
   document.getElementById("sleepLongBtn").addEventListener("click", onSleepPreset(7.5, "睡眠>7h"));
   document.getElementById("exercise20Btn").addEventListener("click", onExercisePreset(20, "运动20分钟"));
   document.getElementById("exercise10Btn").addEventListener("click", onExercisePreset(10, "再加10分钟"));
-  document.getElementById("cycleGoalTag").addEventListener("click", () => openSheet("authSheet"));
 
   document.getElementById("saveMealBtn").addEventListener("click", onMealSubmit);
   document.getElementById("saveWeightBtn").addEventListener("click", onWeightSubmit);
   document.getElementById("saveSettingBtn").addEventListener("click", onSaveSetting);
   document.getElementById("saveAuthBtn").addEventListener("click", () => {
-    const token = document.getElementById("authTokenInput").value.trim();
-    if (token) {
-      localStorage.setItem("auth_token", token);
-    } else {
-      localStorage.removeItem("auth_token");
-    }
-    setMessage(token ? "密钥已保存" : "密钥为空", !token);
-    closeSheet("authSheet");
-    if (token) refreshStatus();
+    withThrottle("saveAuth", async () => {
+      const token = document.getElementById("authTokenInput").value.trim();
+      if (token) {
+        localStorage.setItem("auth_token", token);
+      } else {
+        localStorage.removeItem("auth_token");
+      }
+      setMessage(token ? "密钥已保存" : "密钥为空", !token);
+      closeSheet("authSheet", { force: true });
+      if (token) await refreshStatus();
+    });
   });
 
   document.querySelectorAll("[data-close]").forEach((btn) => {

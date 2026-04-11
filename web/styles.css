@@ -90,6 +90,12 @@ body {
   gap: 10px;
 }
 
+.hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .eyebrow,
 .section-kicker,
 .hero-label,
@@ -286,7 +292,7 @@ h4 {
 }
 
 #cycleGoalTag {
-  cursor: pointer;
+  cursor: default;
 }
 
 .status-good {
