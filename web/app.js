@@ -12,15 +12,43 @@ function setMessage(text, isError = false) {
   el.classList.toggle("toast-error", isError);
 }
 
-async function apiGet(url) {
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!res.ok || !data.ok) throw new Error(data.error || "请求失败");
+function getAuthToken() {
+  return (localStorage.getItem("auth_token") || "").trim();
+}
+
+function parseJsonSafe(text) {
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function readApiResponse(res) {
+  const text = await res.text();
+  const data = parseJsonSafe(text);
+  if (res.status === 401 || data.need_auth) {
+    openSheet("authSheet");
+    throw new Error("需要访问密钥，请先输入 AUTH_TOKEN");
+  }
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `请求失败(${res.status})`);
+  }
   return data;
 }
 
+async function apiGet(url) {
+  const token = getAuthToken();
+  const res = await fetch(url, {
+    headers: {
+      ...(token ? { "X-Auth-Token": token } : {}),
+    },
+  });
+  return readApiResponse(res);
+}
+
 async function apiPost(url, body) {
-  const token = localStorage.getItem("auth_token") || "";
+  const token = getAuthToken();
   const payload = body || {};
   if (token) {
     payload.auth_token = token;
@@ -33,9 +61,7 @@ async function apiPost(url, body) {
     },
     body: JSON.stringify(payload),
   });
-  const data = await res.json();
-  if (!res.ok || !data.ok) throw new Error(data.error || "请求失败");
-  return data;
+  return readApiResponse(res);
 }
 
 function fmtWeight(v) {
@@ -828,9 +854,14 @@ function setupEvents() {
   document.getElementById("saveSettingBtn").addEventListener("click", onSaveSetting);
   document.getElementById("saveAuthBtn").addEventListener("click", () => {
     const token = document.getElementById("authTokenInput").value.trim();
-    if (token) localStorage.setItem("auth_token", token);
+    if (token) {
+      localStorage.setItem("auth_token", token);
+    } else {
+      localStorage.removeItem("auth_token");
+    }
     setMessage(token ? "密钥已保存" : "密钥为空", !token);
     closeSheet("authSheet");
+    if (token) refreshStatus();
   });
 
   document.querySelectorAll("[data-close]").forEach((btn) => {

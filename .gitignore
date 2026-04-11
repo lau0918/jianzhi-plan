@@ -4,3 +4,6 @@ fasting_report.xlsx
 __pycache__/
 *.pyc
 .vscode/
+.env
+.env.*
+!.env.example

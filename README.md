@@ -97,6 +97,17 @@ python3 regression_tests.py
 - `HOST`：可选，默认 `0.0.0.0`
 - `PORT`：平台注入，Railway 会自动提供
 
+## 安全基线（必须执行）
+
+1. 生产环境必须设置 `AUTH_TOKEN`，否则任何人都可直接调用接口读写数据。
+2. 页面首次出现“需要访问密钥”时，输入并保存 `AUTH_TOKEN`（浏览器本地存储）。
+3. `.env` / `.env.*` 已加入忽略规则，禁止把真实密钥提交到 Git。
+4. 若你曾在任何地方暴露过密钥，请立即轮换：
+   - `AUTH_TOKEN`
+   - `NOTION_TOKEN`
+   - `TELEGRAM_BOT_TOKEN`
+5. 若仓库对外公开，建议改为私有仓库，避免代码被直接复用。
+
 ### GitHub Actions / Telegram 提醒
 
 - `NOTION_TOKEN`

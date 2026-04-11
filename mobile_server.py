@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import urllib.request
+from urllib.parse import parse_qs, urlparse
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -175,13 +176,20 @@ def _coach_message(today: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class TrackerHandler(BaseHTTPRequestHandler):
-    def _is_write_allowed(self, body: Dict[str, Any]) -> bool:
+    def _query_token(self) -> str:
+        parsed = urlparse(self.path)
+        query = parse_qs(parsed.query)
+        return str(query.get("auth_token", [""])[0] or "").strip()
+
+    def _is_request_allowed(self, body: Dict[str, Any] | None = None) -> bool:
         if not AUTH_TOKEN:
             return True
         header = self.headers.get("X-Auth-Token", "").strip()
         if header == AUTH_TOKEN:
             return True
-        token = str(body.get("auth_token", "")).strip()
+        if self._query_token() == AUTH_TOKEN:
+            return True
+        token = str((body or {}).get("auth_token", "")).strip()
         return token == AUTH_TOKEN
 
     def _json_response(self, payload: Dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
@@ -277,42 +285,46 @@ class TrackerHandler(BaseHTTPRequestHandler):
         }
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path in ("/", "/index.html"):
+        route = urlparse(self.path).path
+        if route in ("/", "/index.html"):
             return self._serve_file(WEB_DIR / "index.html")
-        if self.path == "/styles.css":
+        if route == "/styles.css":
             return self._serve_file(WEB_DIR / "styles.css")
-        if self.path == "/app.js":
+        if route == "/app.js":
             return self._serve_file(WEB_DIR / "app.js")
-        if self.path == "/api/status":
+        if route == "/api/status":
+            if not self._is_request_allowed():
+                return self._json_response({"ok": False, "error": "未授权", "need_auth": True}, HTTPStatus.UNAUTHORIZED)
             return self._json_response(self._status_payload())
 
         return self._text_response("Not Found", HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
+        route = urlparse(self.path).path
         try:
             body = self._read_json_body()
         except json.JSONDecodeError:
             return self._json_response({"ok": False, "error": "请求体不是有效 JSON"}, HTTPStatus.BAD_REQUEST)
-        if not self._is_write_allowed(body):
-            return self._json_response({"ok": False, "error": "未授权"}, HTTPStatus.UNAUTHORIZED)
+        if not self._is_request_allowed(body):
+            return self._json_response({"ok": False, "error": "未授权", "need_auth": True}, HTTPStatus.UNAUTHORIZED)
 
-        if self.path == "/api/start":
+        if route == "/api/start":
             return self._handle_start(body)
-        if self.path == "/api/end":
+        if route == "/api/end":
             return self._handle_end(body)
-        if self.path == "/api/checkin":
+        if route == "/api/checkin":
             return self._handle_checkin(body)
-        if self.path == "/api/meal":
+        if route == "/api/meal":
             return self._handle_meal(body)
-        if self.path == "/api/weight":
+        if route == "/api/weight":
             return self._handle_weight(body)
-        if self.path == "/api/sleep":
+        if route == "/api/sleep":
             return self._handle_sleep(body)
-        if self.path == "/api/exercise":
+        if route == "/api/exercise":
             return self._handle_exercise(body)
-        if self.path == "/api/window":
+        if route == "/api/window":
             return self._handle_window(body)
-        if self.path == "/api/goal":
+        if route == "/api/goal":
             return self._handle_goal(body)
 
         return self._json_response({"ok": False, "error": "接口不存在"}, HTTPStatus.NOT_FOUND)

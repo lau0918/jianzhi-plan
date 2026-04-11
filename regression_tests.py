@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.error
 import urllib.request
 import zipfile
 from datetime import datetime
@@ -127,7 +128,9 @@ class RegressionTests(unittest.TestCase):
         sys.path.insert(0, str(self.tmpdir))
         server = None
         thread = None
+        old_auth = os.environ.get("AUTH_TOKEN")
         try:
+            os.environ["AUTH_TOKEN"] = "test-token"
             mobile_server = importlib.import_module("mobile_server")
             today = datetime.now().strftime("%Y-%m-%d")
             server = ThreadingHTTPServer(("127.0.0.1", 0), mobile_server.TrackerHandler)
@@ -140,18 +143,35 @@ class RegressionTests(unittest.TestCase):
                     self.assertEqual(resp.status, 200)
                     return json.loads(resp.read().decode("utf-8"))
 
+            def get_auth(path: str) -> dict:
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}{path}",
+                    headers={"X-Auth-Token": "test-token"},
+                    method="GET",
+                )
+                with urllib.request.urlopen(req) as resp:
+                    self.assertEqual(resp.status, 200)
+                    return json.loads(resp.read().decode("utf-8"))
+
             def post(path: str, body: dict) -> dict:
                 req = urllib.request.Request(
                     f"http://127.0.0.1:{port}{path}",
                     data=json.dumps(body).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
+                    headers={"Content-Type": "application/json", "X-Auth-Token": "test-token"},
                     method="POST",
                 )
                 with urllib.request.urlopen(req) as resp:
                     self.assertEqual(resp.status, 200)
                     return json.loads(resp.read().decode("utf-8"))
 
-            status = get("/api/status")
+            with self.assertRaises(urllib.error.HTTPError) as denied:
+                get("/api/status")
+            self.assertEqual(denied.exception.code, 401)
+            denied_payload = json.loads(denied.exception.read().decode("utf-8"))
+            self.assertFalse(denied_payload["ok"])
+            self.assertTrue(denied_payload["need_auth"])
+
+            status = get_auth("/api/status")
             self.assertTrue(status["ok"])
             self.assertEqual(status["plan"]["start"], "10:00")
 
@@ -174,7 +194,7 @@ class RegressionTests(unittest.TestCase):
             data = post("/api/exercise", {"minutes": 10, "time": f"{today} 19:10", "kind": "快走", "note": "一键打卡:运动10分钟"})
             self.assertTrue(data["ok"])
 
-            final_status = get("/api/status")
+            final_status = get_auth("/api/status")
             self.assertEqual(final_status["plan"]["start"], "09:00")
             self.assertEqual(final_status["goal"]["start_date"], "2026-04-01")
             self.assertEqual(final_status["goal"]["end_date"], "2026-06-01")
@@ -208,6 +228,10 @@ class RegressionTests(unittest.TestCase):
                 server.server_close()
             if thread is not None:
                 thread.join(timeout=2)
+            if old_auth is None:
+                os.environ.pop("AUTH_TOKEN", None)
+            else:
+                os.environ["AUTH_TOKEN"] = old_auth
             if str(self.tmpdir) in sys.path:
                 sys.path.remove(str(self.tmpdir))
             if "mobile_server" in sys.modules:
