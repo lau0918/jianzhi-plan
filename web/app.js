@@ -554,7 +554,7 @@ function renderHero(data) {
   document.getElementById("currentWeightInline").textContent = fmtWeight(goal.current_weight);
   document.getElementById("targetWeightInline").textContent = fmtWeight(goal.target_weight);
   document.getElementById("goalProgressText").textContent = visual.label;
-  document.getElementById("goalSourceText").textContent = `状态：${goalSource}`;
+  document.getElementById("goalSourceText").textContent = goalSource;
 
   const progressText = document.getElementById("goalProgressText");
   const progressBar = document.getElementById("goalProgressBar");
@@ -689,16 +689,16 @@ function renderReminders(data) {
 
   if (latestMeal && latestMeal.time) {
     const flag = mealFlag(latestMeal, data.plan);
-    latestMealEl.textContent = `${latestMeal.time.slice(5, 16)} · ${latestMeal.food} · ${flag}`;
+    latestMealEl.textContent = `最近：${latestMeal.time.slice(5, 16)} ${latestMeal.food} ${flag}`;
   } else {
-    latestMealEl.textContent = "最近一餐：暂无";
+    latestMealEl.textContent = "最近：暂无";
   }
 
   list.innerHTML = "";
 
   if (anomalies.length > 0) {
     title.textContent = "偏离风险";
-    summary.textContent = `近7天偏离 ${anomalies.length} 天`;
+    summary.textContent = `7天偏离 ${anomalies.length} 天`;
     anomalies.slice(0, 2).forEach((snapshot) => {
       appendReminderItem(list, "bad", `${snapshot.label}窗口外`, reminderDetail(snapshot, data));
     });
@@ -707,7 +707,7 @@ function renderReminders(data) {
 
   if (missing.length > 0) {
     title.textContent = "记录缺口";
-    summary.textContent = `近7天缺记录 ${missing.length} 天`;
+    summary.textContent = `7天缺记 ${missing.length} 天`;
     missing.slice(0, 2).forEach((snapshot) => {
       appendReminderItem(list, "neutral", `${snapshot.label}未记录`, reminderDetail(snapshot, data));
     });
@@ -715,7 +715,7 @@ function renderReminders(data) {
   }
 
   title.textContent = "状态稳定";
-  summary.textContent = "近7天无偏离";
+  summary.textContent = "7天稳定";
   appendReminderItem(
     list,
     "good",

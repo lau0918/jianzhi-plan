@@ -113,6 +113,19 @@ body {
   color: var(--sub);
 }
 
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef3f6;
+  color: #44515f;
+  font-size: 11px;
+  font-weight: 700;
+  width: fit-content;
+}
+
 .hero-topline,
 .status-head,
 .feed-head,
@@ -569,7 +582,7 @@ h4 {
 }
 
 .goal-summary-card #goalSourceText {
-  font-size: 12px;
+  margin-top: 6px;
 }
 
 .goal-progress-panel {
