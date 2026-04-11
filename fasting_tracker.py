@@ -238,10 +238,6 @@ def build_coach_review(meal_count: int, out_count: int, sleep_latest: Optional[f
         flags.append("meal_incomplete")
         alerts.append("三餐未完成")
         actions.append("按计划补齐今天剩余餐次")
-    if sleep_latest is not None and sleep_latest < 6:
-        flags.append("sleep_low")
-        alerts.append("睡眠不足")
-        actions.append("今晚尽量提前入睡")
     if exercise_total is not None and exercise_total < 20:
         flags.append("exercise_low")
         alerts.append("运动不足")
@@ -261,12 +257,10 @@ def build_coach_review(meal_count: int, out_count: int, sleep_latest: Optional[f
         focus = "窗口纪律"
     elif "meal_incomplete" in flags:
         focus = "餐次完成"
-    elif "sleep_low" in flags:
-        focus = "睡眠修复"
     else:
         focus = "运动达标"
 
-    status_tone = "bad" if any(flag in flags for flag in ("out_window", "sleep_low", "exercise_low")) else "neutral"
+    status_tone = "bad" if any(flag in flags for flag in ("out_window", "exercise_low")) else "neutral"
     status_label = "需跟进" if status_tone == "bad" else "待完成"
     attention = "、".join(alerts)
     message = f"当前需要关注：{attention}。{'；'.join(actions)}。"
