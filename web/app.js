@@ -36,9 +36,9 @@ function withThrottle(actionKey, fn) {
 
 function syncOutcomeText(baseText, data) {
   if (!data) return baseText;
-  if (data.cloud_synced === true) return `${baseText}，云端已记`;
+  if (data.cloud_synced === true) return `${baseText} · 云端`;
   if (data.cloud_synced === false && data.cloud_error) {
-    return `${baseText}，仅本地`;
+    return `${baseText} · 本地`;
   }
   return `${baseText}`;
 }
@@ -923,7 +923,7 @@ async function onWeightSubmit() {
 
 function onSleepPreset(hours, label) {
   return async () => {
-    const confirmed = window.confirm(`确认提交：${label}？`);
+    const confirmed = window.confirm(`${label}？`);
     if (!confirmed) return;
     await withThrottle(`sleep-${hours}`, async () => {
       try {
@@ -939,7 +939,7 @@ function onSleepPreset(hours, label) {
 
 function onExercisePreset(minutes, label) {
   return async () => {
-    const confirmed = window.confirm(`确认提交：${label}？`);
+    const confirmed = window.confirm(`${label}？`);
     if (!confirmed) return;
     await withThrottle(`exercise-${minutes}`, async () => {
       try {
@@ -956,15 +956,15 @@ function onExercisePreset(minutes, label) {
 async function onResetData(scope) {
   const confirmed = window.confirm(
     scope === "all"
-      ? "确认清空云端测试数据？这会归档 Notion 里的测试记录。"
-      : "确认初始化本地数据？这会清空浏览器和本地文件里的测试记录。",
+      ? "清空云端？"
+      : "清空本地？",
   );
   if (!confirmed) return;
 
   await withThrottle(`reset-${scope}`, async () => {
     try {
       const data = await apiPost("/api/reset", { scope });
-      setMessage(syncOutcomeText(scope === "all" ? "已清空云端测试数据" : "已初始化本地数据", data));
+      setMessage(syncOutcomeText(scope === "all" ? "已清空云端" : "已清空本地", data));
       closeSheet("settingSheet", { force: true });
       await refreshStatus();
     } catch (err) {
@@ -1002,7 +1002,7 @@ async function onSaveSetting() {
       const cloudSynced = goalResult.cloud_synced === false || windowResult.cloud_synced === false ? false : goalResult.cloud_synced ?? windowResult.cloud_synced;
       const cloudError = goalResult.cloud_error || windowResult.cloud_error;
       const syntheticResult = { cloud_synced: cloudSynced, cloud_error: cloudError };
-      setMessage(syncOutcomeText("已保存设置", syntheticResult));
+      setMessage(syncOutcomeText("已保存", syntheticResult));
       closeSheet("settingSheet", { force: true });
       await refreshStatus();
     } catch (err) {
@@ -1039,7 +1039,7 @@ function setupEvents() {
       } else {
         localStorage.removeItem("auth_token");
       }
-      setMessage(token ? "密钥已保存" : "密钥为空", !token);
+      setMessage(token ? "已保存" : "为空", !token);
       closeSheet("authSheet", { force: true });
       if (token) await refreshStatus();
     });
