@@ -656,8 +656,6 @@ function renderCoach(data) {
   const statusEl = document.getElementById("coachStatus");
   const actionsEl = document.getElementById("coachActions");
   const toggleBtn = document.getElementById("toggleCoachBtn");
-  msgEl.textContent = coach.message || "睡眠与运动可选";
-
   const tone = coach.status_tone || "neutral";
   const statusClass = tone === "bad" ? "status-bad" : tone === "good" ? "status-good" : "status-neutral";
   statusEl.className = `status-badge ${statusClass}`;
@@ -668,11 +666,11 @@ function renderCoach(data) {
   document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
   if (tone === "bad") {
-    msgEl.textContent = "先处理偏离";
+    msgEl.textContent = "偏离";
   } else if (tone === "good") {
-    msgEl.textContent = "继续保持";
+    msgEl.textContent = "稳定";
   } else if (tone === "neutral") {
-    msgEl.textContent = "补齐今天";
+    msgEl.textContent = "补齐";
   } else {
     msgEl.textContent = (coach.message || "睡眠与运动可选").split("。")[0];
   }
