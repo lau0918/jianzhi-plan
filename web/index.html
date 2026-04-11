@@ -17,7 +17,18 @@
           <div id="statusBadge" class="status-badge status-neutral">待开始</div>
         </div>
         <p id="todayReason" class="status-copy">先记录第一餐，开始今天的执行。</p>
-        <p id="fastingRule" class="status-rule">8+16 规则：窗口内进食，窗口外仅喝水。</p>
+        <div class="window-timeline" aria-label="进食窗口时间轴">
+          <div class="window-time-labels">
+            <span id="windowStartLabel">--:--</span>
+            <span id="windowEndLabel">--:--</span>
+          </div>
+          <div class="window-track">
+            <div id="windowProgressFill" class="window-progress-fill"></div>
+            <span id="windowNowDot" class="window-now-dot"></span>
+          </div>
+          <p id="windowStateLabel" class="window-state-label">当前状态 -</p>
+        </div>
+        <p id="fastingRule" class="status-rule micro-rule">窗口外只喝水</p>
         <div class="status-chips">
           <span id="windowChip" class="chip">窗口 -</span>
           <span id="mealCountChip" class="chip">进食 0 次</span>
@@ -42,24 +53,32 @@
             <div class="hero-copy">
               <h2 id="heroHeadline">先设置减脂目标</h2>
               <p id="heroSubline" class="hero-subline">填写开始日期、初始体重和目标体重后，这里会显示进度。</p>
-              <p id="cycleGoalTag" class="status-badge status-neutral cycle-goal-tag">周期状态：待评估</p>
               <p id="goalSourceText" class="hero-footnote">数据状态：本地缓存</p>
-            </div>
-            <div class="hero-inline" aria-label="体重目标概览">
-              <span>起始 <strong id="startWeightInline">-</strong></span>
-              <span>当前 <strong id="currentWeightInline">-</strong></span>
-              <span>目标 <strong id="targetWeightInline">-</strong></span>
             </div>
           </div>
 
           <div class="progress-panel goal-progress-panel" aria-label="减脂进度路线图">
-            <p id="goalCycleSummary" class="hero-footnote">还差 - kg · 剩余 - 天</p>
+            <div class="goal-progress-head">
+              <div>
+                <p class="progress-label">目标进度</p>
+                <strong id="goalProgressText" class="goal-progress-number">-</strong>
+              </div>
+              <div class="goal-progress-copy">
+                <p id="goalCycleSummary" class="hero-footnote">还差 - kg · 剩余 - 天</p>
+                <p id="cycleGoalTag" class="status-badge status-neutral cycle-goal-tag">周期状态：待评估</p>
+              </div>
+            </div>
             <div class="progress-row compact">
-              <p class="progress-label">减重进度</p>
               <div class="progress-track">
                 <div id="goalProgressBar" class="progress-fill"></div>
               </div>
-              <p id="goalProgressText" class="hero-footnote">-</p>
+            </div>
+            <div class="weight-route" aria-label="体重路线">
+              <span id="startWeightInline">-</span>
+              <span class="route-arrow">→</span>
+              <span id="currentWeightInline">-</span>
+              <span class="route-arrow">→</span>
+              <span id="targetWeightInline">-</span>
             </div>
             <p id="paceText" class="hero-footnote">节奏判定 -</p>
           </div>

@@ -347,12 +347,74 @@ h4 {
 }
 
 .today-hero-card .status-copy {
-  margin-top: 8px;
+  margin-top: 6px;
   color: #445064;
+  font-size: 17px;
+  font-weight: 650;
 }
 
 .today-hero-card .status-rule {
-  margin-top: 6px;
+  margin-top: 8px;
+}
+
+.window-timeline {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 122, 255, 0.12);
+}
+
+.window-time-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #526073;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.window-track {
+  position: relative;
+  height: 8px;
+  border-radius: 8px;
+  background: #dfeaf6;
+}
+
+.window-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), #4cc9f0);
+  transition: width 0.35s ease;
+}
+
+.window-now-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #fff;
+  border-radius: 8px;
+  background: var(--blue);
+  box-shadow: 0 2px 8px rgba(0, 91, 190, 0.24);
+  transform: translate(-50%, -50%);
+  transition: left 0.35s ease;
+}
+
+.window-state-label {
+  margin: 0;
+  color: #526073;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.micro-rule {
+  color: #7b8798;
+  font-size: 12px;
 }
 
 .coach-card {
@@ -426,6 +488,10 @@ h4 {
   margin-top: 8px;
 }
 
+.status-chips #windowChip {
+  display: none;
+}
+
 .status-rule {
   margin: 8px 0 0;
   color: var(--sub);
@@ -448,6 +514,70 @@ h4 {
   min-height: 50px;
   color: #344054;
   background: rgba(255, 255, 255, 0.72);
+}
+
+.goal-summary-card .hero-summary {
+  gap: 6px;
+}
+
+.goal-summary-card .hero-subline {
+  display: none;
+}
+
+.goal-summary-card #goalSourceText {
+  font-size: 12px;
+}
+
+.goal-progress-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.goal-progress-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.goal-progress-number {
+  display: block;
+  margin-top: 2px;
+  color: var(--blue-deep);
+  font-size: 32px;
+  line-height: 1;
+}
+
+.goal-progress-copy {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  text-align: right;
+}
+
+.goal-progress-copy .hero-footnote {
+  margin-top: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.weight-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  color: #526073;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.weight-route span:not(.route-arrow) {
+  min-width: 0;
+}
+
+.route-arrow {
+  color: #9aa6b6;
 }
 
 .chip {

@@ -243,6 +243,9 @@ function currentWindowState(plan) {
   const now = new Date();
   const current = now.getHours() * 60 + now.getMinutes();
   const inWindow = duration >= 1440 ? true : start <= end ? current >= start && current <= end : current >= start || current <= end;
+  const elapsedInWindow = inWindow ? (current - start + 1440) % 1440 : 0;
+  const progressPercent = duration >= 1440 ? 100 : Math.max(0, Math.min(100, Math.round((elapsedInWindow / duration) * 100)));
+  const dotPercent = inWindow ? progressPercent : start > current ? 0 : 100;
   const minutesLeft = inWindow
     ? start <= end
       ? Math.max(0, end - current)
@@ -255,6 +258,8 @@ function currentWindowState(plan) {
   return {
     inWindow,
     minutesLeft,
+    progressPercent,
+    dotPercent,
     start: safePlan.start || "10:00",
     end: `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`,
   };
@@ -280,8 +285,8 @@ function todayActionCopy(today, plan) {
     return {
       title: "今天有偏离",
       reason: windowState.inWindow
-        ? `现在在进食窗口内，下一餐回到窗口内记录即可。`
-        : `当前正在断食，先喝水，下一餐等 ${windowState.start} 后再吃。`,
+        ? "下一餐回到窗口内"
+        : `先喝水 · 等 ${windowState.start}`,
       badgeLabel: "需要调整",
       badgeClass: "status-bad",
       mealButton: windowState.inWindow ? "记录下一餐，回到窗口内" : "记录进食",
@@ -293,8 +298,8 @@ function todayActionCopy(today, plan) {
     return {
       title: windowState.inWindow ? "现在可以进食" : "正在断食",
       reason: windowState.inWindow
-        ? `窗口 ${windowState.start}-${windowState.end}，还剩 ${fmtDurationMinutes(windowState.minutesLeft)}。`
-        : `今天进食都在窗口内，距离下一次进食还有 ${fmtDurationMinutes(windowState.minutesLeft)}。`,
+        ? `窗口剩余 ${fmtDurationMinutes(windowState.minutesLeft)}`
+        : `只喝水 · 还有 ${fmtDurationMinutes(windowState.minutesLeft)}`,
       badgeLabel: "进行顺利",
       badgeClass: "status-good",
       mealButton: windowState.inWindow ? "记录这一餐" : "记录进食",
@@ -306,8 +311,8 @@ function todayActionCopy(today, plan) {
     return {
       title: windowState.inWindow ? "现在可以进食" : "正在断食",
       reason: windowState.inWindow
-        ? `体重已记录，窗口还剩 ${fmtDurationMinutes(windowState.minutesLeft)}，下一步记录第一餐。`
-        : `体重已记录，距离进食窗口开始还有 ${fmtDurationMinutes(windowState.minutesLeft)}。`,
+        ? `先记录第一餐`
+        : `只喝水 · 还有 ${fmtDurationMinutes(windowState.minutesLeft)}`,
       badgeLabel: "待完成",
       badgeClass: "status-neutral",
       mealButton: windowState.inWindow ? "记录第一餐" : "记录进食",
@@ -318,8 +323,8 @@ function todayActionCopy(today, plan) {
   return {
     title: windowState.inWindow ? "现在可以进食" : "正在断食",
     reason: windowState.inWindow
-      ? `窗口 ${windowState.start}-${windowState.end}，先记录第一餐。`
-      : `窗口 ${windowState.start}-${windowState.end}，当前只喝水，距离开始还有 ${fmtDurationMinutes(windowState.minutesLeft)}。`,
+      ? "先记录第一餐"
+      : `只喝水 · 还有 ${fmtDurationMinutes(windowState.minutesLeft)}`,
     badgeLabel: "待开始",
     badgeClass: "status-neutral",
     mealButton: windowState.inWindow ? "记录第一餐" : "记录进食",
@@ -329,13 +334,13 @@ function todayActionCopy(today, plan) {
 
 function paceMessage(goal) {
   const pace = goal?.pace_status;
-  if (pace === "reached") return "按计划：目标已达成";
-  if (pace === "ahead") return "按计划：当前略快于周期节奏";
-  if (pace === "on_track") return "按计划：当前进度正常";
-  if (pace === "behind") return "按计划：当前落后周期节奏";
-  if (pace === "missed") return "按计划：周期已结束且未达标";
-  if (pace === "not_started") return "按计划：周期尚未开始";
-  return "按计划：等待更多数据";
+  if (pace === "reached") return "节奏：已达标";
+  if (pace === "ahead") return "节奏：略快";
+  if (pace === "on_track") return "节奏：正常";
+  if (pace === "behind") return "节奏：落后";
+  if (pace === "missed") return "节奏：未达标";
+  if (pace === "not_started") return "节奏：未开始";
+  return "节奏：待评估";
 }
 
 function paceToneClass(goal) {
@@ -615,9 +620,16 @@ function renderToday(data) {
 
   document.getElementById("todayStatus").textContent = copy.title;
   document.getElementById("todayReason").textContent = copy.reason;
-  document.getElementById("fastingRule").textContent = "8+16 规则：窗口内进食，窗口外仅喝水。";
-
   const windowState = currentWindowState(plan);
+  document.getElementById("fastingRule").textContent = windowState.inWindow ? "窗口内可进食" : "窗口外只喝水";
+
+  document.getElementById("windowStartLabel").textContent = windowState.start;
+  document.getElementById("windowEndLabel").textContent = windowState.end;
+  document.getElementById("windowStateLabel").textContent = windowState.inWindow ? "当前在窗口内" : "当前在窗口外";
+  const windowFill = document.getElementById("windowProgressFill");
+  const windowDot = document.getElementById("windowNowDot");
+  if (windowFill) windowFill.style.width = windowState.inWindow ? `${windowState.progressPercent}%` : "0%";
+  if (windowDot) windowDot.style.left = `${windowState.dotPercent}%`;
 
   document.getElementById("windowChip").textContent =
     `窗口 ${windowState.start}-${windowState.end}`;
