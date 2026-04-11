@@ -3,6 +3,7 @@ const state = {
   feedShowAll: false,
   feedDefaultLimit: 5,
   feedExpanded: false,
+  coachExpanded: false,
   expandedDays: new Set(),
   actionLocks: Object.create(null),
 };
@@ -31,6 +32,15 @@ function withThrottle(actionKey, fn) {
   if (now - last < 800) return Promise.resolve(null);
   state.actionLocks[actionKey] = now;
   return Promise.resolve().then(fn);
+}
+
+function syncOutcomeText(baseText, data) {
+  if (!data) return baseText;
+  if (data.cloud_synced === true) return `${baseText}，并已同步到 Notion`;
+  if (data.cloud_synced === false && data.cloud_error) {
+    return `${baseText}，本地已保存，但 Notion 同步失败：${data.cloud_error}`;
+  }
+  return `${baseText}，本地已保存`;
 }
 
 function hasUnsavedInput(sheetId) {
@@ -484,11 +494,13 @@ function openSheet(id) {
 function renderHero(data) {
   const goal = data.goal || {};
   const visual = computeGoalVisual(goal);
+  const goalSource = data.goal_source === "notion" ? "Notion 回填" : data.goal_source === "local" ? "本地缓存" : "未设置";
 
   document.getElementById("startWeightInline").textContent = fmtWeight(goal.start_weight);
   document.getElementById("currentWeightInline").textContent = fmtWeight(goal.current_weight);
   document.getElementById("targetWeightInline").textContent = fmtWeight(goal.target_weight);
   document.getElementById("goalProgressText").textContent = visual.label;
+  document.getElementById("goalSourceText").textContent = `数据状态：${goalSource}`;
 
   const progressText = document.getElementById("goalProgressText");
   const progressBar = document.getElementById("goalProgressBar");
@@ -578,6 +590,8 @@ function renderCoach(data) {
   const focusEl = document.getElementById("coachFocus");
   const msgEl = document.getElementById("coachMessage");
   const statusEl = document.getElementById("coachStatus");
+  const actionsEl = document.getElementById("coachActions");
+  const toggleBtn = document.getElementById("toggleCoachBtn");
 
   focusEl.textContent = coach.focus || "执行重点";
   msgEl.textContent = coach.message || "保持节奏，优先完成三餐记录。";
@@ -586,6 +600,8 @@ function renderCoach(data) {
   const statusClass = tone === "bad" ? "status-bad" : tone === "good" ? "status-good" : "status-neutral";
   statusEl.className = `status-badge ${statusClass}`;
   statusEl.textContent = coach.status_label || "待跟进";
+  actionsEl.classList.toggle("hidden", !state.coachExpanded);
+  toggleBtn.textContent = state.coachExpanded ? "收起动作" : "展开动作";
 
   document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
@@ -799,7 +815,7 @@ async function onMealSubmit() {
   await withThrottle("saveMeal", async () => {
     try {
       const data = await apiPost("/api/meal", { food, note, time });
-      setMessage(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", !data.in_window);
+      setMessage(syncOutcomeText(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", data), !data.in_window);
       setInputValue("mealFoodInput", "");
       setInputValue("mealTimeInput", "");
       setInputValue("mealNoteInput", "");
@@ -822,8 +838,8 @@ async function onWeightSubmit() {
 
   await withThrottle("saveWeight", async () => {
     try {
-      await apiPost("/api/weight", { value, note, time });
-      setMessage("已记录体重");
+      const data = await apiPost("/api/weight", { value, note, time });
+      setMessage(syncOutcomeText("已记录体重", data));
       setInputValue("weightValueInput", "");
       setInputValue("weightTimeInput", "");
       setInputValue("weightNoteInput", "");
@@ -841,8 +857,8 @@ function onSleepPreset(hours, label) {
     if (!confirmed) return;
     await withThrottle(`sleep-${hours}`, async () => {
       try {
-        await apiPost("/api/sleep", { hours, note: `一键打卡:${label}` });
-        setMessage(`已记录睡眠：${label}`);
+        const data = await apiPost("/api/sleep", { hours, note: `一键打卡:${label}` });
+        setMessage(syncOutcomeText(`已记录睡眠：${label}`, data));
         await refreshStatus();
       } catch (err) {
         setMessage(err.message, true);
@@ -857,8 +873,8 @@ function onExercisePreset(minutes, label) {
     if (!confirmed) return;
     await withThrottle(`exercise-${minutes}`, async () => {
       try {
-        await apiPost("/api/exercise", { minutes, kind: "快走", note: `一键打卡:${label}` });
-        setMessage(`已记录运动：${label}`);
+        const data = await apiPost("/api/exercise", { minutes, kind: "快走", note: `一键打卡:${label}` });
+        setMessage(syncOutcomeText(`已记录运动：${label}`, data));
         await refreshStatus();
       } catch (err) {
         setMessage(err.message, true);
@@ -886,14 +902,17 @@ async function onSaveSetting() {
 
   await withThrottle("saveSetting", async () => {
     try {
-      await apiPost("/api/goal", {
+      const goalResult = await apiPost("/api/goal", {
         start_date: startDate,
         end_date: endDate,
         start_weight: startWeight,
         target_weight: targetWeight,
       });
-      await apiPost("/api/window", { start, hours });
-      setMessage("已保存设置");
+      const windowResult = await apiPost("/api/window", { start, hours });
+      const cloudSynced = goalResult.cloud_synced === false || windowResult.cloud_synced === false ? false : goalResult.cloud_synced ?? windowResult.cloud_synced;
+      const cloudError = goalResult.cloud_error || windowResult.cloud_error;
+      const syntheticResult = { cloud_synced: cloudSynced, cloud_error: cloudError };
+      setMessage(syncOutcomeText("已保存设置", syntheticResult));
       closeSheet("settingSheet", { force: true });
       await refreshStatus();
     } catch (err) {
@@ -907,6 +926,10 @@ function setupEvents() {
   document.getElementById("openSettingBtn").addEventListener("click", () => openSheet("settingSheet"));
   document.getElementById("quickMealBtn").addEventListener("click", () => openSheet("mealSheet"));
   document.getElementById("quickWeightBtn").addEventListener("click", () => openSheet("weightSheet"));
+  document.getElementById("toggleCoachBtn").addEventListener("click", () => {
+    state.coachExpanded = !state.coachExpanded;
+    renderCoach(state.data);
+  });
   document.getElementById("sleepShortBtn").addEventListener("click", onSleepPreset(5.5, "睡眠<6h"));
   document.getElementById("sleepMidBtn").addEventListener("click", onSleepPreset(6.5, "睡眠6-7h"));
   document.getElementById("sleepLongBtn").addEventListener("click", onSleepPreset(7.5, "睡眠>7h"));

@@ -10,7 +10,7 @@
 - 目标总览（开始日期、初始体重、目标体重、当前体重、是否达标）
 - 教练复盘（睡眠 / 运动 / 餐次建议，不改写 8+16 主执行结果）
 - 自动导出 Excel 分析文件
-- 可选同步到 Notion（Meals / Weights / Goals / Sleep / Exercise）
+- 可选同步到 Notion（Meals / Weights / Goals / Sleep / Exercise），并支持从 Goals 表回填减脂目标
 - 可选 Telegram 三餐提醒（基于 Notion）
 
 ## 命令行使用
@@ -94,6 +94,7 @@ python3 regression_tests.py
 - `NOTION_GOALS_DB`：目标表数据库 ID
 - `NOTION_SLEEP_DB`：睡眠表数据库 ID（可选）
 - `NOTION_EXERCISE_DB`：运动表数据库 ID（可选）
+- Notion 字段会优先按表结构自动匹配标题 / 时间 / 数值 / 备注字段；如果你自建数据库字段名不同，也要保证字段类型正确。
 - `HOST`：可选，默认 `0.0.0.0`
 - `PORT`：平台注入，Railway 会自动提供
 
@@ -107,6 +108,7 @@ python3 regression_tests.py
    - `NOTION_TOKEN`
    - `TELEGRAM_BOT_TOKEN`
 5. 若仓库对外公开，建议改为私有仓库，避免代码被直接复用。
+6. 如果 Goal 页面反复要求重填，先检查 Goals 表是否有最新记录；当前服务会在页面加载时优先回填最近一次目标。
 
 ### GitHub Actions / Telegram 提醒
 

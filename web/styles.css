@@ -46,9 +46,9 @@ body {
 .coach-card,
 .feed-card {
   border: 1px solid var(--line);
-  background: var(--card-soft);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
 }
 
 .hero-card {
@@ -76,6 +76,11 @@ body {
 
 .hero-copy {
   min-width: 0;
+}
+
+#goalSourceText {
+  margin-top: 4px;
+  color: var(--sub);
 }
 
 .hero-topline,
@@ -190,7 +195,7 @@ h4 {
   margin-top: 10px;
   padding: 10px 12px 12px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(248, 250, 252, 0.96);
   border: 1px solid rgba(15, 23, 42, 0.06);
   color: var(--text);
 }
@@ -269,6 +274,12 @@ h4 {
   gap: 10px;
 }
 
+.coach-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .coach-chips {
   display: flex;
   flex-wrap: wrap;
@@ -281,6 +292,10 @@ h4 {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 10px;
+}
+
+.coach-actions.hidden {
+  display: none;
 }
 
 .status-badge {

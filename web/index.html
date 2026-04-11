@@ -22,6 +22,7 @@
               <h1 id="heroHeadline">先设置减脂目标</h1>
               <p id="heroSubline" class="hero-subline">填写开始日期、初始体重和目标体重后，这里会显示进度。</p>
               <p id="cycleGoalTag" class="status-badge status-neutral cycle-goal-tag">周期状态：待评估</p>
+              <p id="goalSourceText" class="hero-footnote">数据状态：本地缓存</p>
             </div>
             <div class="hero-inline">
               <span>起始 <strong id="startWeightInline">-</strong></span>
@@ -72,14 +73,17 @@
             <p class="section-kicker">教练复盘</p>
             <h3 id="coachFocus">执行重点</h3>
           </div>
-          <span id="coachStatus" class="status-badge status-neutral">今日跟进</span>
+          <div class="coach-head-actions">
+            <button id="toggleCoachBtn" class="ghost-link ghost-link-muted">展开动作</button>
+            <span id="coachStatus" class="status-badge status-neutral">今日跟进</span>
+          </div>
         </div>
         <p id="coachMessage" class="status-copy">记录今天的睡眠与运动，帮助稳定节奏。</p>
         <div class="coach-chips">
           <span id="sleepChip" class="chip">睡眠 - h</span>
           <span id="exerciseChip" class="chip">运动 - 分钟</span>
         </div>
-        <div class="coach-actions">
+        <div id="coachActions" class="coach-actions hidden">
           <button id="sleepShortBtn" class="secondary-btn">睡眠&lt;6h</button>
           <button id="sleepMidBtn" class="secondary-btn">睡眠6-7h</button>
           <button id="sleepLongBtn" class="secondary-btn">睡眠&gt;7h</button>

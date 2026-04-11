@@ -352,6 +352,11 @@ def goal_stats(data: Dict[str, Any]) -> Dict[str, Any]:
     goal = data.get("goal", DEFAULT_GOAL)
     logs = sorted(data.get("weight_logs", []), key=lambda w: w.get("time", ""))
     current = float(logs[-1]["weight"]) if logs else None
+    if current is None and goal.get("current_weight") is not None:
+        try:
+            current = float(goal.get("current_weight"))
+        except (TypeError, ValueError):
+            current = None
 
     start_weight = goal.get("start_weight")
     target_weight = goal.get("target_weight")

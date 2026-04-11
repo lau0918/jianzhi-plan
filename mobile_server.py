@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import urllib.error
 import urllib.request
 from urllib.parse import parse_qs, urlparse
 from dataclasses import asdict
@@ -46,6 +48,7 @@ NOTION_WEIGHTS_DB = os.getenv("NOTION_WEIGHTS_DB", "").strip()
 NOTION_GOALS_DB = os.getenv("NOTION_GOALS_DB", "").strip()
 NOTION_SLEEP_DB = os.getenv("NOTION_SLEEP_DB", "").strip()
 NOTION_EXERCISE_DB = os.getenv("NOTION_EXERCISE_DB", "").strip()
+_NOTION_DB_SCHEMA_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 def _notion_enabled() -> bool:
@@ -66,94 +69,223 @@ def _notion_datetime(value: str) -> str:
     return value.replace(" ", "T") + ":00"
 
 
-def _notion_create_page(database_id: str, properties: Dict[str, Any]) -> None:
-    if not NOTION_TOKEN or not database_id:
-        return
-    payload = {"parent": {"database_id": database_id}, "properties": properties}
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+def _notion_request_json(endpoint: str, payload: Dict[str, Any] | None = None, method: str = "GET") -> Dict[str, Any]:
+    if not NOTION_TOKEN:
+        return {}
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
     req = urllib.request.Request(
-        "https://api.notion.com/v1/pages",
+        f"https://api.notion.com/v1{endpoint}",
         data=data,
         headers={
             "Authorization": f"Bearer {NOTION_TOKEN}",
             "Content-Type": "application/json",
             "Notion-Version": "2022-06-28",
         },
-        method="POST",
+        method=method,
     )
     try:
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            resp.read()
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "ignore")
+        raise RuntimeError(raw or f"{exc.code} {exc.reason}") from exc
+
+
+def _notion_database_schema(database_id: str) -> Dict[str, Any]:
+    if database_id in _NOTION_DB_SCHEMA_CACHE:
+        return _NOTION_DB_SCHEMA_CACHE[database_id]
+    schema = _notion_request_json(f"/databases/{database_id}", method="GET")
+    _NOTION_DB_SCHEMA_CACHE[database_id] = schema
+    return schema
+
+
+def _notion_properties(schema: Dict[str, Any]) -> Dict[str, Any]:
+    props = schema.get("properties")
+    return props if isinstance(props, dict) else {}
+
+
+def _notion_pick_property(schema: Dict[str, Any], prop_type: str, keywords: tuple[str, ...] = ()) -> str | None:
+    props = _notion_properties(schema)
+    candidates: list[str] = []
+    for name, prop in props.items():
+        if not isinstance(prop, dict) or prop.get("type") != prop_type:
+            continue
+        candidates.append(name)
+        if keywords and any(keyword in name for keyword in keywords):
+            return name
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
+
+
+def _notion_read_property(prop: Dict[str, Any] | None) -> Any:
+    if not prop:
+        return None
+    kind = prop.get("type")
+    if kind == "title":
+        parts = prop.get("title") or []
+        return "".join(str(item.get("plain_text") or "") for item in parts).strip() or None
+    if kind == "rich_text":
+        parts = prop.get("rich_text") or []
+        return "".join(str(item.get("plain_text") or "") for item in parts).strip() or None
+    if kind == "date":
+        date = prop.get("date") or {}
+        return date.get("start")
+    if kind == "number":
+        return prop.get("number")
+    if kind == "select":
+        select = prop.get("select") or {}
+        return select.get("name")
+    if kind == "checkbox":
+        return prop.get("checkbox")
+    return None
+
+
+def _notion_sync_page(database_id: str, properties: Dict[str, Any]) -> tuple[bool, str | None]:
+    if not NOTION_TOKEN or not database_id:
+        return False, "未配置 Notion"
+    payload = {"parent": {"database_id": database_id}, "properties": properties}
+    try:
+        _notion_request_json("/pages", payload=payload, method="POST")
+        return True, None
     except Exception as exc:
-        print(f"警告: Notion 写入失败: {exc}")
+        message = str(exc)
+        print(f"警告: Notion 写入失败: {message}")
+        return False, message
 
 
-def _notion_sync_meal(meal: MealRecord, in_window: bool) -> None:
+def _notion_sync_meal(meal: MealRecord, in_window: bool) -> tuple[bool, str | None]:
     if not NOTION_MEALS_DB:
-        return
+        return False, "未配置进食表"
+    try:
+        schema = _notion_database_schema(NOTION_MEALS_DB)
+    except Exception as exc:
+        return False, f"读取进食表结构失败: {exc}"
+    title_prop = _notion_pick_property(schema, "title", ("食物", "名称", "记录"))
+    time_prop = _notion_pick_property(schema, "date", ("时间", "日期"))
+    window_prop = _notion_pick_property(schema, "select", ("窗口状态", "状态", "类型", "分类"))
+    note_prop = _notion_pick_property(schema, "rich_text", ("备注", "说明", "描述"))
+    if not title_prop or not time_prop:
+        return False, "进食表缺少标题或时间字段"
     props = {
-        "食物": {"title": [{"text": {"content": meal.food}}]},
-        "时间": {"date": {"start": _notion_datetime(meal.time)}},
-        "窗口状态": {"select": {"name": "窗口内" if in_window else "窗口外"}},
-        "备注": {"rich_text": [{"text": {"content": meal.note or ""}}]},
+        title_prop: {"title": [{"text": {"content": meal.food}}]},
+        time_prop: {"date": {"start": _notion_datetime(meal.time)}},
     }
-    _notion_create_page(NOTION_MEALS_DB, props)
+    if window_prop:
+        props[window_prop] = {"select": {"name": "窗口内" if in_window else "窗口外"}}
+    if note_prop:
+        props[note_prop] = {"rich_text": [{"text": {"content": meal.note or ""}}]}
+    return _notion_sync_page(NOTION_MEALS_DB, props)
 
 
-def _notion_sync_weight(item: WeightRecord) -> None:
+def _notion_sync_weight(item: WeightRecord) -> tuple[bool, str | None]:
     if not NOTION_WEIGHTS_DB:
-        return
+        return False, "未配置体重表"
+    try:
+        schema = _notion_database_schema(NOTION_WEIGHTS_DB)
+    except Exception as exc:
+        return False, f"读取体重表结构失败: {exc}"
+    title_prop = _notion_pick_property(schema, "title", ("体重", "记录", "重量"))
+    time_prop = _notion_pick_property(schema, "date", ("时间", "日期"))
+    weight_prop = _notion_pick_property(schema, "number", ("体重", "重量", "数值"))
+    note_prop = _notion_pick_property(schema, "rich_text", ("备注", "说明", "描述"))
+    if not title_prop or not time_prop or not weight_prop:
+        return False, "体重表缺少标题、时间或数值字段"
     props = {
-        "体重记录": {"title": [{"text": {"content": f"{item.weight}kg"}}]},
-        "时间": {"date": {"start": _notion_datetime(item.time)}},
-        "体重(kg)": {"number": item.weight},
-        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
+        title_prop: {"title": [{"text": {"content": f"{item.weight}kg"}}]},
+        time_prop: {"date": {"start": _notion_datetime(item.time)}},
+        weight_prop: {"number": item.weight},
     }
-    _notion_create_page(NOTION_WEIGHTS_DB, props)
+    if note_prop:
+        props[note_prop] = {"rich_text": [{"text": {"content": item.note or ""}}]}
+    return _notion_sync_page(NOTION_WEIGHTS_DB, props)
 
 
-def _notion_sync_goal(goal: Dict[str, Any]) -> None:
+def _notion_sync_goal(goal: Dict[str, Any]) -> tuple[bool, str | None]:
     if not NOTION_GOALS_DB:
-        return
+        return False, "未配置目标表"
+    try:
+        schema = _notion_database_schema(NOTION_GOALS_DB)
+    except Exception as exc:
+        return False, f"读取目标表结构失败: {exc}"
     title = f"{goal.get('start_date') or '-'} ~ {goal.get('end_date') or '-'}"
+    title_prop = _notion_pick_property(schema, "title", ("周期", "目标", "计划"))
+    start_prop = _notion_pick_property(schema, "date", ("开始", "起始"))
+    end_prop = _notion_pick_property(schema, "date", ("结束", "截止"))
+    start_weight_prop = _notion_pick_property(schema, "number", ("初始", "起始", "开始"))
+    target_weight_prop = _notion_pick_property(schema, "number", ("目标",))
+    current_weight_prop = _notion_pick_property(schema, "number", ("当前",))
+    progress_prop = _notion_pick_property(schema, "number", ("进度",))
+    pace_prop = _notion_pick_property(schema, "select", ("节奏", "状态"))
+    if not title_prop or not start_weight_prop or not target_weight_prop:
+        return False, "目标表缺少标题、初始体重或目标体重字段"
     props = {
-        "周期": {"title": [{"text": {"content": title}}]},
-        "开始日期": {"date": {"start": goal.get("start_date")}} if goal.get("start_date") else None,
-        "结束日期": {"date": {"start": goal.get("end_date")}} if goal.get("end_date") else None,
-        "初始体重": {"number": goal.get("start_weight")},
-        "目标体重": {"number": goal.get("target_weight")},
-        "当前体重": {"number": goal.get("current_weight")},
-        "目标进度(%)": {"number": goal.get("progress_percent")},
-        "节奏判定": {"select": {"name": _goal_pace_label(goal.get("pace_status"))}},
+        title_prop: {"title": [{"text": {"content": title}}]},
+        start_weight_prop: {"number": goal.get("start_weight")},
+        target_weight_prop: {"number": goal.get("target_weight")},
     }
-    clean_props = {k: v for k, v in props.items() if v is not None}
-    _notion_create_page(NOTION_GOALS_DB, clean_props)
+    if start_prop and goal.get("start_date"):
+        props[start_prop] = {"date": {"start": goal.get("start_date")}}
+    if end_prop and goal.get("end_date"):
+        props[end_prop] = {"date": {"start": goal.get("end_date")}}
+    if current_weight_prop and goal.get("current_weight") is not None:
+        props[current_weight_prop] = {"number": goal.get("current_weight")}
+    if progress_prop and goal.get("progress_percent") is not None:
+        props[progress_prop] = {"number": goal.get("progress_percent")}
+    if pace_prop:
+        props[pace_prop] = {"select": {"name": _goal_pace_label(goal.get("pace_status"))}}
+    return _notion_sync_page(NOTION_GOALS_DB, props)
 
 
-def _notion_sync_sleep(item: SleepRecord) -> None:
+def _notion_sync_sleep(item: SleepRecord) -> tuple[bool, str | None]:
     if not NOTION_SLEEP_DB:
-        return
+        return False, "未配置睡眠表"
+    try:
+        schema = _notion_database_schema(NOTION_SLEEP_DB)
+    except Exception as exc:
+        return False, f"读取睡眠表结构失败: {exc}"
+    title_prop = _notion_pick_property(schema, "title", ("睡眠", "记录", "时长"))
+    time_prop = _notion_pick_property(schema, "date", ("时间", "日期"))
+    hours_prop = _notion_pick_property(schema, "number", ("时长", "小时"))
+    note_prop = _notion_pick_property(schema, "rich_text", ("备注", "说明", "描述"))
+    if not title_prop or not time_prop or not hours_prop:
+        return False, "睡眠表缺少标题、时间或时长字段"
     props = {
-        "睡眠记录": {"title": [{"text": {"content": f"{item.hours}h"}}]},
-        "时间": {"date": {"start": _notion_datetime(item.time)}},
-        "时长(小时)": {"number": item.hours},
-        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
+        title_prop: {"title": [{"text": {"content": f"{item.hours}h"}}]},
+        time_prop: {"date": {"start": _notion_datetime(item.time)}},
+        hours_prop: {"number": item.hours},
     }
-    _notion_create_page(NOTION_SLEEP_DB, props)
+    if note_prop:
+        props[note_prop] = {"rich_text": [{"text": {"content": item.note or ""}}]}
+    return _notion_sync_page(NOTION_SLEEP_DB, props)
 
 
-def _notion_sync_exercise(item: ExerciseRecord) -> None:
+def _notion_sync_exercise(item: ExerciseRecord) -> tuple[bool, str | None]:
     if not NOTION_EXERCISE_DB:
-        return
+        return False, "未配置运动表"
+    try:
+        schema = _notion_database_schema(NOTION_EXERCISE_DB)
+    except Exception as exc:
+        return False, f"读取运动表结构失败: {exc}"
+    title_prop = _notion_pick_property(schema, "title", ("运动", "记录", "时长"))
+    time_prop = _notion_pick_property(schema, "date", ("时间", "日期"))
+    minutes_prop = _notion_pick_property(schema, "number", ("时长", "分钟"))
+    kind_prop = _notion_pick_property(schema, "rich_text", ("类型", "种类", "分类"))
+    note_prop = _notion_pick_property(schema, "rich_text", ("备注", "说明", "描述"))
+    if not title_prop or not time_prop or not minutes_prop:
+        return False, "运动表缺少标题、时间或分钟字段"
     title = item.kind or "运动"
     props = {
-        "运动记录": {"title": [{"text": {"content": title}}]},
-        "时间": {"date": {"start": _notion_datetime(item.time)}},
-        "时长(分钟)": {"number": item.minutes},
-        "类型": {"rich_text": [{"text": {"content": item.kind or ""}}]},
-        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
+        title_prop: {"title": [{"text": {"content": title}}]},
+        time_prop: {"date": {"start": _notion_datetime(item.time)}},
+        minutes_prop: {"number": item.minutes},
     }
-    _notion_create_page(NOTION_EXERCISE_DB, props)
+    if kind_prop:
+        props[kind_prop] = {"rich_text": [{"text": {"content": item.kind or ""}}]}
+    if note_prop:
+        props[note_prop] = {"rich_text": [{"text": {"content": item.note or ""}}]}
+    return _notion_sync_page(NOTION_EXERCISE_DB, props)
 
 
 def _goal_pace_label(value: str) -> str:
@@ -173,6 +305,75 @@ def _coach_message(today: Dict[str, Any]) -> Dict[str, Any]:
         "flags": list(today.get("coach_flags") or []),
         "alerts": list(today.get("coach_alerts") or []),
     }
+
+
+def _notion_latest_goal_snapshot() -> Dict[str, Any] | None:
+    if not (NOTION_TOKEN and NOTION_GOALS_DB):
+        return None
+    try:
+        schema = _notion_database_schema(NOTION_GOALS_DB)
+        start_prop = _notion_pick_property(schema, "date", ("开始", "起始"))
+        end_prop = _notion_pick_property(schema, "date", ("结束", "截止"))
+        start_weight_prop = _notion_pick_property(schema, "number", ("初始", "起始", "开始"))
+        target_weight_prop = _notion_pick_property(schema, "number", ("目标",))
+        current_weight_prop = _notion_pick_property(schema, "number", ("当前",))
+        progress_prop = _notion_pick_property(schema, "number", ("进度",))
+        pace_prop = _notion_pick_property(schema, "select", ("节奏", "状态"))
+        title_prop = _notion_pick_property(schema, "title", ("周期", "目标", "计划"))
+        payload = _notion_request_json(
+            f"/databases/{NOTION_GOALS_DB}/query",
+            payload={
+                "page_size": 1,
+                "sorts": [{"timestamp": "last_edited_time", "direction": "descending"}],
+            },
+            method="POST",
+        )
+        results = payload.get("results") or []
+        if not results:
+            return None
+        props = (results[0] or {}).get("properties") or {}
+        goal: Dict[str, Any] = {
+            "start_date": _notion_read_property(props.get(start_prop)) if start_prop else None,
+            "end_date": _notion_read_property(props.get(end_prop)) if end_prop else None,
+            "start_weight": _notion_read_property(props.get(start_weight_prop)) if start_weight_prop else None,
+            "target_weight": _notion_read_property(props.get(target_weight_prop)) if target_weight_prop else None,
+            "current_weight": _notion_read_property(props.get(current_weight_prop)) if current_weight_prop else None,
+            "progress_percent": _notion_read_property(props.get(progress_prop)) if progress_prop else None,
+            "pace_status": _notion_read_property(props.get(pace_prop)) if pace_prop else None,
+        }
+        title = _notion_read_property(props.get(title_prop)) if title_prop else None
+        if isinstance(title, str):
+            match = re.search(r"(?P<start>\d{4}-\d{2}-\d{2})\s*~\s*(?P<end>\d{4}-\d{2}-\d{2})", title)
+            if match:
+                goal.setdefault("start_date", match.group("start"))
+                goal.setdefault("end_date", match.group("end"))
+        if not any(goal.get(key) is not None for key in ("start_date", "end_date", "start_weight", "target_weight")):
+            return None
+        return goal
+    except Exception as exc:
+        print(f"警告: 读取 Notion 目标失败: {exc}")
+        return None
+
+
+def _hydrate_goal_from_notion(data: Dict[str, Any]) -> tuple[Dict[str, Any], str]:
+    goal = dict(data.get("goal") or {})
+    if goal.get("start_date") and goal.get("start_weight") and goal.get("target_weight"):
+        return data, "local"
+
+    remote = _notion_latest_goal_snapshot()
+    if not remote:
+        return data, "empty" if not goal else "local"
+
+    merged = dict(goal)
+    for key, value in remote.items():
+        if value is not None and value != "":
+            merged[key] = value
+    data["goal"] = merged
+    try:
+        save_data(data)
+    except Exception:
+        pass
+    return data, "notion"
 
 
 class TrackerHandler(BaseHTTPRequestHandler):
@@ -238,6 +439,7 @@ class TrackerHandler(BaseHTTPRequestHandler):
 
     def _status_payload(self) -> Dict[str, Any]:
         data = load_data()
+        data, goal_source = _hydrate_goal_from_notion(data)
         plan = data.get("plan", DEFAULT_PLAN)
         active = data.get("active_fast")
         records = data.get("records", [])
@@ -265,6 +467,7 @@ class TrackerHandler(BaseHTTPRequestHandler):
             "ok": True,
             "plan": plan,
             "goal": goal,
+            "goal_source": goal_source,
             "active_fast": active,
             "elapsed_hours": elapsed_hours,
             "remaining_hours": remaining_hours,
@@ -428,13 +631,17 @@ class TrackerHandler(BaseHTTPRequestHandler):
         save_data(data)
 
         in_window = is_meal_in_window(meal.time, data.get("plan", DEFAULT_PLAN))
+        cloud_synced = None
+        cloud_error = None
         if _notion_enabled():
-            _notion_sync_meal(meal, in_window)
+            cloud_synced, cloud_error = _notion_sync_meal(meal, in_window)
         return self._json_response(
             {
                 "ok": True,
                 "message": f"已记录进食: {meal.time} | {meal.food}",
                 "in_window": in_window,
+                "cloud_synced": cloud_synced,
+                "cloud_error": cloud_error,
             }
         )
 
@@ -462,9 +669,18 @@ class TrackerHandler(BaseHTTPRequestHandler):
         data.setdefault("weight_logs", []).append(asdict(item))
         save_data(data)
 
+        cloud_synced = None
+        cloud_error = None
         if _notion_enabled():
-            _notion_sync_weight(item)
-        return self._json_response({"ok": True, "message": f"已记录体重: {item.time} | {item.weight} kg"})
+            cloud_synced, cloud_error = _notion_sync_weight(item)
+        return self._json_response(
+            {
+                "ok": True,
+                "message": f"已记录体重: {item.time} | {item.weight} kg",
+                "cloud_synced": cloud_synced,
+                "cloud_error": cloud_error,
+            }
+        )
 
     def _handle_sleep(self, body: Dict[str, Any]) -> None:
         data = load_data()
@@ -487,9 +703,18 @@ class TrackerHandler(BaseHTTPRequestHandler):
         )
         data.setdefault("sleep_logs", []).append(asdict(item))
         save_data(data)
+        cloud_synced = None
+        cloud_error = None
         if _notion_enabled():
-            _notion_sync_sleep(item)
-        return self._json_response({"ok": True, "message": f"已记录睡眠: {item.time} | {item.hours} 小时"})
+            cloud_synced, cloud_error = _notion_sync_sleep(item)
+        return self._json_response(
+            {
+                "ok": True,
+                "message": f"已记录睡眠: {item.time} | {item.hours} 小时",
+                "cloud_synced": cloud_synced,
+                "cloud_error": cloud_error,
+            }
+        )
 
     def _handle_exercise(self, body: Dict[str, Any]) -> None:
         data = load_data()
@@ -514,10 +739,19 @@ class TrackerHandler(BaseHTTPRequestHandler):
         )
         data.setdefault("exercise_logs", []).append(asdict(item))
         save_data(data)
+        cloud_synced = None
+        cloud_error = None
         if _notion_enabled():
-            _notion_sync_exercise(item)
+            cloud_synced, cloud_error = _notion_sync_exercise(item)
         label = kind or "运动"
-        return self._json_response({"ok": True, "message": f"已记录运动: {item.time} | {label} {item.minutes} 分钟"})
+        return self._json_response(
+            {
+                "ok": True,
+                "message": f"已记录运动: {item.time} | {label} {item.minutes} 分钟",
+                "cloud_synced": cloud_synced,
+                "cloud_error": cloud_error,
+            }
+        )
 
     def _handle_window(self, body: Dict[str, Any]) -> None:
         data = load_data()
@@ -580,9 +814,18 @@ class TrackerHandler(BaseHTTPRequestHandler):
             "target_weight": round(target_weight, 2),
         }
         save_data(data)
+        cloud_synced = None
+        cloud_error = None
         if _notion_enabled():
-            _notion_sync_goal(goal_stats(data))
-        return self._json_response({"ok": True, "message": "已保存减脂目标"})
+            cloud_synced, cloud_error = _notion_sync_goal(goal_stats(data))
+        return self._json_response(
+            {
+                "ok": True,
+                "message": "已保存减脂目标",
+                "cloud_synced": cloud_synced,
+                "cloud_error": cloud_error,
+            }
+        )
 
 
 def parse_args() -> argparse.Namespace:

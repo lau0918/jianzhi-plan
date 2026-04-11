@@ -198,6 +198,7 @@ class RegressionTests(unittest.TestCase):
             self.assertEqual(final_status["plan"]["start"], "09:00")
             self.assertEqual(final_status["goal"]["start_date"], "2026-04-01")
             self.assertEqual(final_status["goal"]["end_date"], "2026-06-01")
+            self.assertIn(final_status["goal_source"], ("local", "notion"))
             self.assertIn("cycle_total_days", final_status["goal"])
             self.assertIn("cycle_time_progress", final_status["goal"])
             self.assertIn("pace_status", final_status["goal"])
