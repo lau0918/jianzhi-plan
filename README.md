@@ -8,6 +8,7 @@
 - 减脂目标总览（开始日期、初始体重、目标体重、当前体重、是否达标）
 - 自动导出 Excel 分析文件
 - 可选同步到 Notion（Meals / Weights / Goals）
+- 可选 Telegram 提醒（基于 Notion）
 
 ## 命令行使用
 
@@ -76,3 +77,19 @@ python3 regression_tests.py
 ```
 
 测试在临时目录执行，不会污染你当前数据文件。
+
+## Telegram 提醒（Notion 数据源）
+
+当当天还没有进食记录时，按固定时间发送提醒。推荐用 GitHub Actions 定时执行。
+
+需要配置的 GitHub Secrets：
+
+- `NOTION_TOKEN`
+- `NOTION_MEALS_DB`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `REMINDER_WINDOW`（例如 `07:00-15:00`，可选）
+
+定时任务已在 `.github/workflows/reminder.yml` 中设置为：
+
+- Asia/Shanghai 08:00 / 12:00 / 15:00（对应 UTC 00:00 / 04:00 / 07:00）
