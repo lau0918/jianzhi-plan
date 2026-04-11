@@ -81,15 +81,12 @@ def main() -> None:
     _require_env("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID)
 
     meal_count = _notion_query_today_meals()
-    if meal_count > 0:
-        print(f"今天已有进食记录 {meal_count} 条，无需提醒。")
-        return
 
     tz = ZoneInfo(TZ_NAME or "Asia/Shanghai")
     now = datetime.now(tz).strftime("%Y-%m-%d %H:%M")
     message = (
-        f"提醒：今天进食窗口 {REMINDER_WINDOW} 内尚无进食记录。\n"
-        f"请在窗口内记录下一餐。({now})"
+        f"提醒：请在进食窗口 {REMINDER_WINDOW} 内完成下一餐。\n"
+        f"今日已记录进食 {meal_count} 次。({now})"
     )
     _send_telegram(message)
     print("已发送提醒。")
