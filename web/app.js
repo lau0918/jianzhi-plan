@@ -948,6 +948,26 @@ function onExercisePreset(minutes, label) {
   };
 }
 
+async function onResetData(scope) {
+  const confirmed = window.confirm(
+    scope === "all"
+      ? "确认清空云端测试数据？这会归档 Notion 里的测试记录。"
+      : "确认初始化本地数据？这会清空浏览器和本地文件里的测试记录。",
+  );
+  if (!confirmed) return;
+
+  await withThrottle(`reset-${scope}`, async () => {
+    try {
+      const data = await apiPost("/api/reset", { scope });
+      setMessage(syncOutcomeText(scope === "all" ? "已清空云端测试数据" : "已初始化本地数据", data));
+      closeSheet("settingSheet", { force: true });
+      await refreshStatus();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+}
+
 async function onSaveSetting() {
   const startDate = document.getElementById("goalStartDateInput").value;
   const endDate = document.getElementById("goalEndDateInput").value;
@@ -1004,6 +1024,8 @@ function setupEvents() {
   document.getElementById("saveMealBtn").addEventListener("click", onMealSubmit);
   document.getElementById("saveWeightBtn").addEventListener("click", onWeightSubmit);
   document.getElementById("saveSettingBtn").addEventListener("click", onSaveSetting);
+  document.getElementById("resetLocalBtn").addEventListener("click", () => onResetData("local"));
+  document.getElementById("resetAllBtn").addEventListener("click", () => onResetData("all"));
   document.getElementById("saveAuthBtn").addEventListener("click", () => {
     withThrottle("saveAuth", async () => {
       const token = document.getElementById("authTokenInput").value.trim();

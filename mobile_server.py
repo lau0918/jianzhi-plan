@@ -21,6 +21,7 @@ from fasting_tracker import (
     DATE_FMT,
     TIME_FMT,
     DEFAULT_PLAN,
+    DEFAULT_DATA,
     MealRecord,
     Record,
     WeightRecord,
@@ -51,6 +52,13 @@ NOTION_EXERCISE_DB = os.getenv("NOTION_EXERCISE_DB", "").strip()
 _NOTION_DB_SCHEMA_CACHE: Dict[str, Dict[str, Any]] = {}
 _NOTION_DB_ID_RE = re.compile(r"[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 _NOTION_DB_RESOLUTION_CACHE: Dict[str, str] = {}
+_NOTION_RESET_TARGETS = (
+    ("进食记录", lambda: NOTION_MEALS_DB),
+    ("体重记录", lambda: NOTION_WEIGHTS_DB),
+    ("目标设置", lambda: NOTION_GOALS_DB),
+    ("睡眠记录", lambda: NOTION_SLEEP_DB),
+    ("运动记录", lambda: NOTION_EXERCISE_DB),
+)
 
 
 def _notion_enabled() -> bool:
@@ -223,6 +231,53 @@ def _notion_sync_page(database_id: str, properties: Dict[str, Any]) -> tuple[boo
         message = _notion_readable_error(exc, normalized, "数据库")
         print(f"警告: Notion 写入失败: {message}")
         return False, message
+
+
+def _notion_query_all_page_ids(database_id: str) -> list[str]:
+    page_ids: list[str] = []
+    start_cursor: str | None = None
+    while True:
+        payload: Dict[str, Any] = {"page_size": 100, "sorts": [{"timestamp": "last_edited_time", "direction": "descending"}]}
+        if start_cursor:
+            payload["start_cursor"] = start_cursor
+        result = _notion_request_json(f"/databases/{database_id}/query", payload=payload, method="POST")
+        for item in result.get("results", []):
+            if isinstance(item, dict) and item.get("id"):
+                page_ids.append(str(item["id"]))
+        if not result.get("has_more"):
+            break
+        start_cursor = str(result.get("next_cursor") or "").strip() or None
+        if not start_cursor:
+            break
+    return page_ids
+
+
+def _notion_archive_database(database_id: str) -> tuple[int, str | None]:
+    ids = _notion_query_all_page_ids(database_id)
+    archived = 0
+    for page_id in ids:
+        try:
+            _notion_request_json(f"/pages/{page_id}", payload={"archived": True}, method="PATCH")
+            archived += 1
+        except Exception as exc:
+            return archived, _notion_readable_error(exc, database_id, "数据库")
+    return archived, None
+
+
+def _reset_local_data() -> None:
+    save_data(json.loads(json.dumps(DEFAULT_DATA)))
+
+
+def _resolve_reset_database_ids() -> Dict[str, str]:
+    resolved: Dict[str, str] = {}
+    for title, getter in _NOTION_RESET_TARGETS:
+        value = getter()
+        if not value:
+            continue
+        db_id = _resolve_notion_database_id(value, title)
+        if db_id:
+            resolved[title] = db_id
+    return resolved
 
 
 def _notion_sync_meal(meal: MealRecord, in_window: bool) -> tuple[bool, str | None]:
@@ -605,6 +660,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
             return self._handle_window(body)
         if route == "/api/goal":
             return self._handle_goal(body)
+        if route == "/api/reset":
+            return self._handle_reset(body)
 
         return self._json_response({"ok": False, "error": "接口不存在"}, HTTPStatus.NOT_FOUND)
 
@@ -900,6 +957,52 @@ class TrackerHandler(BaseHTTPRequestHandler):
                 "message": "已保存减脂目标",
                 "cloud_synced": cloud_synced,
                 "cloud_error": cloud_error,
+            }
+        )
+
+    def _handle_reset(self, body: Dict[str, Any]) -> None:
+        scope = str(body.get("scope", "local")).strip().lower()
+        if scope not in {"local", "all"}:
+            scope = "local"
+
+        _reset_local_data()
+
+        archived_total = 0
+        cloud_error = None
+        if scope == "all" and _notion_enabled():
+            resolved = _resolve_reset_database_ids()
+            for title, db_id in resolved.items():
+                try:
+                    archived, error = _notion_archive_database(db_id)
+                    archived_total += archived
+                    if error:
+                        cloud_error = f"{title}: {error}"
+                        break
+                except Exception as exc:
+                    cloud_error = f"{title}: {_notion_readable_error(exc, db_id, '数据库')}"
+                    break
+
+        message = "已初始化本地数据"
+        if scope == "all":
+            if cloud_error:
+                return self._json_response(
+                    {
+                        "ok": False,
+                        "error": f"初始化完成，但云端清理失败：{cloud_error}",
+                        "cloud_synced": False,
+                        "cloud_error": cloud_error,
+                    }
+                )
+            message = "已初始化本地与云端测试数据"
+
+        return self._json_response(
+            {
+                "ok": True,
+                "message": message,
+                "cloud_synced": scope != "all" or cloud_error is None,
+                "cloud_error": cloud_error,
+                "archived_total": archived_total,
+                "scope": scope,
             }
         )
 

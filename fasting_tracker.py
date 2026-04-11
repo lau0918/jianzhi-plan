@@ -20,6 +20,16 @@ DATE_FMT = "%Y-%m-%d"
 CLOCK_FMT = "%H:%M"
 DEFAULT_PLAN = {"start": "10:00", "hours": 8}
 DEFAULT_GOAL = {"start_date": "", "end_date": "", "start_weight": None, "target_weight": None}
+DEFAULT_DATA = {
+    "active_fast": None,
+    "records": [],
+    "meals": [],
+    "weight_logs": [],
+    "sleep_logs": [],
+    "exercise_logs": [],
+    "plan": dict(DEFAULT_PLAN),
+    "goal": dict(DEFAULT_GOAL),
+}
 
 
 @dataclass
@@ -85,16 +95,7 @@ def parse_clock(value: str) -> time:
 
 def load_data() -> Dict[str, Any]:
     if not DATA_FILE.exists():
-        return {
-            "active_fast": None,
-            "records": [],
-            "meals": [],
-            "weight_logs": [],
-            "sleep_logs": [],
-            "exercise_logs": [],
-            "plan": dict(DEFAULT_PLAN),
-            "goal": dict(DEFAULT_GOAL),
-        }
+        return json.loads(json.dumps(DEFAULT_DATA))
 
     with DATA_FILE.open("r", encoding="utf-8") as f:
         data = json.load(f)

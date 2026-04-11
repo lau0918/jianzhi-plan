@@ -180,6 +180,11 @@
       <input id="windowStartInput" type="time" value="10:00" />
       <label>窗口时长(小时)</label>
       <input id="windowHoursInput" type="number" min="1" max="24" step="1" value="8" />
+      <p class="sheet-note">初始化数据会清空本地测试数据；如需同时清空 Notion 测试数据，请使用下方按钮。</p>
+      <div class="sheet-actions sheet-actions-stack">
+        <button id="resetLocalBtn" class="secondary-btn danger-btn" type="button">初始化本地数据</button>
+        <button id="resetAllBtn" class="secondary-btn danger-btn" type="button">清空云端测试数据</button>
+      </div>
       <div class="sheet-actions">
         <button class="secondary-btn" data-close="settingSheet">取消</button>
         <button id="saveSettingBtn" class="primary-btn">保存</button>

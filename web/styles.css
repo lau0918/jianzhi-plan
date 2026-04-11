@@ -954,6 +954,11 @@ h4 {
   margin-top: 14px;
 }
 
+.sheet-actions-stack {
+  display: flex;
+  flex-direction: column;
+}
+
 .primary-btn,
 .secondary-btn {
   min-height: 44px;
@@ -976,6 +981,19 @@ button:focus-visible {
   border: 1px solid var(--line);
   background: #fff;
   color: var(--text);
+}
+
+.danger-btn {
+  color: #c9312c;
+  border-color: #f1c4c4;
+  background: #fff8f8;
+}
+
+.sheet-note {
+  margin: 10px 0 0;
+  color: var(--sub);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .primary-btn {
