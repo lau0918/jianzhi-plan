@@ -676,10 +676,7 @@ function goalFilled(goal) {
 
 function renderReminders(data) {
   const title = document.getElementById("reminderTitle");
-  const reviewStatus = document.getElementById("reviewStatus");
-  const reviewMissed = document.getElementById("reviewMissed");
-  const reviewMissing = document.getElementById("reviewMissing");
-  const reviewLatest = document.getElementById("reviewLatest");
+  const reviewSummary = document.getElementById("reviewSummary");
   const list = document.getElementById("reminderHighlights");
   const snapshots = weekSnapshots(data);
   const anomalies = snapshots.filter((snapshot) => snapshot.status === "未达标");
@@ -689,21 +686,17 @@ function renderReminders(data) {
   const riskRatio = Math.max(0, Math.min(100, Math.round((anomalies.length / 7) * 100)));
   if (riskMeterFill) riskMeterFill.style.width = `${riskRatio}%`;
 
+  let latestLabel = "最近 -";
   if (latestMeal && latestMeal.time) {
     const flag = mealFlag(latestMeal, data.plan);
-    reviewLatest.textContent = `最近 ${latestMeal.time.slice(5, 10)} ${flag}`;
-  } else {
-    reviewLatest.textContent = "最近 -";
+    latestLabel = `最近 ${latestMeal.time.slice(5, 10)} ${flag}`;
   }
 
   list.innerHTML = "";
 
   if (anomalies.length > 0) {
     title.textContent = "偏离风险";
-    reviewStatus.textContent = "需调整";
-    reviewStatus.className = "status-badge status-bad";
-    reviewMissed.textContent = `偏离 ${anomalies.length}`;
-    reviewMissing.textContent = `缺记 ${missing.length}`;
+    reviewSummary.textContent = `需调整 · 偏离 ${anomalies.length} · 缺记 ${missing.length}`;
     anomalies.slice(0, 2).forEach((snapshot) => {
       appendReminderItem(list, "bad", `${snapshot.label}`, reminderDetail(snapshot, data));
     });
@@ -712,10 +705,7 @@ function renderReminders(data) {
 
   if (missing.length > 0) {
     title.textContent = "记录缺口";
-    reviewStatus.textContent = "待补记";
-    reviewStatus.className = "status-badge status-neutral";
-    reviewMissed.textContent = "偏离 0";
-    reviewMissing.textContent = `缺记 ${missing.length}`;
+    reviewSummary.textContent = `待补记 · 偏离 0 · 缺记 ${missing.length}`;
     missing.slice(0, 2).forEach((snapshot) => {
       appendReminderItem(list, "neutral", `${snapshot.label}`, reminderDetail(snapshot, data));
     });
@@ -723,10 +713,7 @@ function renderReminders(data) {
   }
 
   title.textContent = "状态稳定";
-  reviewStatus.textContent = "稳定";
-  reviewStatus.className = "status-badge status-good";
-  reviewMissed.textContent = "偏离 0";
-  reviewMissing.textContent = "缺记 0";
+  reviewSummary.textContent = `稳定 · 偏离 0 · 缺记 0 · ${latestLabel}`;
   appendReminderItem(
     list,
     "good",
