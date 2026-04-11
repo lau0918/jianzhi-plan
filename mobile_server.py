@@ -44,10 +44,23 @@ NOTION_TOKEN = os.getenv("NOTION_TOKEN", "").strip()
 NOTION_MEALS_DB = os.getenv("NOTION_MEALS_DB", "").strip()
 NOTION_WEIGHTS_DB = os.getenv("NOTION_WEIGHTS_DB", "").strip()
 NOTION_GOALS_DB = os.getenv("NOTION_GOALS_DB", "").strip()
+NOTION_SLEEP_DB = os.getenv("NOTION_SLEEP_DB", "").strip()
+NOTION_EXERCISE_DB = os.getenv("NOTION_EXERCISE_DB", "").strip()
+NOTION_WAIST_DB = os.getenv("NOTION_WAIST_DB", "").strip()
 
 
 def _notion_enabled() -> bool:
-    return bool(NOTION_TOKEN and (NOTION_MEALS_DB or NOTION_WEIGHTS_DB or NOTION_GOALS_DB))
+    return bool(
+        NOTION_TOKEN
+        and (
+            NOTION_MEALS_DB
+            or NOTION_WEIGHTS_DB
+            or NOTION_GOALS_DB
+            or NOTION_SLEEP_DB
+            or NOTION_EXERCISE_DB
+            or NOTION_WAIST_DB
+        )
+    )
 
 
 def _notion_datetime(value: str) -> str:
@@ -117,6 +130,44 @@ def _notion_sync_goal(goal: Dict[str, Any]) -> None:
     }
     clean_props = {k: v for k, v in props.items() if v is not None}
     _notion_create_page(NOTION_GOALS_DB, clean_props)
+
+
+def _notion_sync_sleep(item: SleepRecord) -> None:
+    if not NOTION_SLEEP_DB:
+        return
+    props = {
+        "睡眠记录": {"title": [{"text": {"content": f"{item.hours}h"}}]},
+        "时间": {"date": {"start": _notion_datetime(item.time)}},
+        "时长(小时)": {"number": item.hours},
+        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
+    }
+    _notion_create_page(NOTION_SLEEP_DB, props)
+
+
+def _notion_sync_exercise(item: ExerciseRecord) -> None:
+    if not NOTION_EXERCISE_DB:
+        return
+    title = item.kind or "运动"
+    props = {
+        "运动记录": {"title": [{"text": {"content": title}}]},
+        "时间": {"date": {"start": _notion_datetime(item.time)}},
+        "时长(分钟)": {"number": item.minutes},
+        "类型": {"rich_text": [{"text": {"content": item.kind or ""}}]},
+        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
+    }
+    _notion_create_page(NOTION_EXERCISE_DB, props)
+
+
+def _notion_sync_waist(item: WaistRecord) -> None:
+    if not NOTION_WAIST_DB:
+        return
+    props = {
+        "腰围记录": {"title": [{"text": {"content": f"{item.cm}cm"}}]},
+        "时间": {"date": {"start": _notion_datetime(item.time)}},
+        "腰围(cm)": {"number": item.cm},
+        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
+    }
+    _notion_create_page(NOTION_WAIST_DB, props)
 
 
 def _goal_pace_label(value: str) -> str:
@@ -449,6 +500,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
         )
         data.setdefault("sleep_logs", []).append(asdict(item))
         save_data(data)
+        if _notion_enabled():
+            _notion_sync_sleep(item)
         return self._json_response({"ok": True, "message": f"已记录睡眠: {item.time} | {item.hours} 小时"})
 
     def _handle_exercise(self, body: Dict[str, Any]) -> None:
@@ -474,6 +527,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
         )
         data.setdefault("exercise_logs", []).append(asdict(item))
         save_data(data)
+        if _notion_enabled():
+            _notion_sync_exercise(item)
         label = kind or "运动"
         return self._json_response({"ok": True, "message": f"已记录运动: {item.time} | {label} {item.minutes} 分钟"})
 
@@ -498,6 +553,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
         )
         data.setdefault("waist_logs", []).append(asdict(item))
         save_data(data)
+        if _notion_enabled():
+            _notion_sync_waist(item)
         return self._json_response({"ok": True, "message": f"已记录腰围: {item.time} | {item.cm} cm"})
 
     def _handle_window(self, body: Dict[str, Any]) -> None:
