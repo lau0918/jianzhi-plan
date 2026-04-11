@@ -878,7 +878,7 @@ async function onMealSubmit() {
   const note = document.getElementById("mealNoteInput").value.trim();
   const time = toApiDatetime("mealTimeInput");
   if (!food) {
-    setMessage("请填写吃了什么", true);
+    setMessage("请填食物", true);
     return;
   }
 
@@ -902,7 +902,7 @@ async function onWeightSubmit() {
   const note = document.getElementById("weightNoteInput").value.trim();
   const time = toApiDatetime("weightTimeInput");
   if (!value || value <= 0) {
-    setMessage("请填写有效体重", true);
+    setMessage("请填体重", true);
     return;
   }
 
@@ -982,11 +982,11 @@ async function onSaveSetting() {
   const hours = Number(document.getElementById("windowHoursInput").value || 8);
 
   if (!startDate || !endDate || !startWeight || !targetWeight) {
-    setMessage("请完整填写减脂目标和周期", true);
+    setMessage("请填完整", true);
     return;
   }
   if (endDate < startDate) {
-    setMessage("结束日期不能早于开始日期", true);
+    setMessage("结束早于开始", true);
     return;
   }
 

@@ -135,10 +135,10 @@
     <div id="sheetMask" class="sheet-mask hidden"></div>
 
     <section id="mealSheet" class="sheet hidden">
-      <h3>记录进食</h3>
-      <input id="mealFoodInput" placeholder="吃了什么（必填）" maxlength="80" />
+      <h3>进食</h3>
+      <input id="mealFoodInput" placeholder="食物" maxlength="80" />
       <input id="mealTimeInput" type="datetime-local" />
-      <input id="mealNoteInput" placeholder="备注（可选）" maxlength="80" />
+      <input id="mealNoteInput" placeholder="备注" maxlength="80" />
       <div class="sheet-actions">
         <button class="secondary-btn" data-close="mealSheet">取消</button>
         <button id="saveMealBtn" class="primary-btn">保存</button>
@@ -146,10 +146,10 @@
     </section>
 
     <section id="weightSheet" class="sheet hidden">
-      <h3>记录体重</h3>
-      <input id="weightValueInput" type="number" step="0.1" min="1" placeholder="体重(kg)" />
+      <h3>体重</h3>
+      <input id="weightValueInput" type="number" step="0.1" min="1" placeholder="kg" />
       <input id="weightTimeInput" type="datetime-local" />
-      <input id="weightNoteInput" placeholder="备注（可选）" maxlength="80" />
+      <input id="weightNoteInput" placeholder="备注" maxlength="80" />
       <div class="sheet-actions">
         <button class="secondary-btn" data-close="weightSheet">取消</button>
         <button id="saveWeightBtn" class="primary-btn">保存</button>
@@ -166,23 +166,23 @@
     </section>
 
       <section id="settingSheet" class="sheet hidden">
-        <h3>减脂设置</h3>
-        <label>减肥开始日期</label>
+        <h3>目标</h3>
+        <label>开始</label>
         <input id="goalStartDateInput" type="date" />
-        <label>减肥结束日期</label>
+        <label>结束</label>
         <input id="goalEndDateInput" type="date" />
-        <label>初始体重(kg)</label>
+        <label>初始(kg)</label>
         <input id="goalStartWeightInput" type="number" step="0.1" min="1" />
-      <label>目标体重(kg)</label>
+      <label>目标(kg)</label>
       <input id="goalTargetWeightInput" type="number" step="0.1" min="1" />
-      <label>每日进食窗口开始</label>
+      <label>窗口起点</label>
       <input id="windowStartInput" type="time" value="10:00" />
-      <label>窗口时长(小时)</label>
+      <label>窗口时长</label>
       <input id="windowHoursInput" type="number" min="1" max="24" step="1" value="8" />
-      <p class="sheet-note">初始化数据会清空本地测试数据；如需同时清空 Notion 测试数据，请使用下方按钮。</p>
+      <p class="sheet-note">初始化会清空测试数据。</p>
       <div class="sheet-actions sheet-actions-stack">
-        <button id="resetLocalBtn" class="secondary-btn danger-btn" type="button">初始化本地数据</button>
-        <button id="resetAllBtn" class="secondary-btn danger-btn" type="button">清空云端测试数据</button>
+        <button id="resetLocalBtn" class="secondary-btn danger-btn" type="button">清空本地</button>
+        <button id="resetAllBtn" class="secondary-btn danger-btn" type="button">清空云端</button>
       </div>
       <div class="sheet-actions">
         <button class="secondary-btn" data-close="settingSheet">取消</button>
