@@ -86,32 +86,17 @@
         </div>
       </section>
 
-      <section class="coach-card">
-        <div class="coach-head">
-          <div>
-            <p class="section-kicker">执行建议</p>
-            <h3 id="coachFocus">执行重点</h3>
-          </div>
-          <div class="coach-head-actions">
-            <button id="toggleCoachBtn" class="ghost-link ghost-link-muted">展开动作</button>
-            <span id="coachStatus" class="status-badge status-neutral">今日跟进</span>
-          </div>
+      <section class="coach-card compact-card">
+        <div class="compact-head">
+          <p class="section-kicker">快捷动作</p>
+          <button id="toggleCoachBtn" class="ghost-link ghost-link-muted">更多动作</button>
         </div>
-        <p id="coachMessage" class="status-copy">保持节奏</p>
-        <div class="coach-bars" aria-label="睡眠和运动完成度">
-          <div class="coach-bar-item">
-            <span class="coach-bar-label">睡眠</span>
-            <div class="coach-bar-track"><div id="sleepBarFill" class="coach-bar-fill"></div></div>
-          </div>
-          <div class="coach-bar-item">
-            <span class="coach-bar-label">运动</span>
-            <div class="coach-bar-track"><div id="exerciseBarFill" class="coach-bar-fill"></div></div>
-          </div>
-        </div>
-        <div class="coach-chips">
+        <div class="coach-chips compact-chips">
+          <span id="coachStatus" class="status-badge status-neutral">待跟进</span>
           <span id="sleepChip" class="chip">睡眠 - h</span>
           <span id="exerciseChip" class="chip">运动 - 分钟</span>
         </div>
+        <p id="coachMessage" class="micro-note">-</p>
         <div id="coachActions" class="coach-actions hidden">
           <button id="sleepShortBtn" class="secondary-btn">睡眠&lt;6h</button>
           <button id="sleepMidBtn" class="secondary-btn">睡眠6-7h</button>
@@ -125,15 +110,15 @@
         <div class="feed-head">
           <div>
             <p class="section-kicker">最近复盘</p>
-            <h3 id="reminderTitle">先看风险</h3>
+            <h3 id="reminderTitle">风险摘要</h3>
           </div>
-          <button id="toggleFeedBtn" class="ghost-link ghost-link-muted">查看全部记录</button>
+          <button id="toggleFeedBtn" class="ghost-link ghost-link-muted">全部记录</button>
         </div>
         <div class="risk-meter" aria-label="近7天风险比例">
           <div id="riskMeterFill" class="risk-meter-fill"></div>
         </div>
-        <p id="feedSummary" class="status-copy">近7天执行稳定，没有异常。</p>
-        <p id="latestMealSummary" class="status-copy">今天最近一次进食：暂无记录。</p>
+        <p id="feedSummary" class="status-copy compact-summary">近7天执行稳定</p>
+        <p id="latestMealSummary" class="micro-note">最近一餐：暂无</p>
         <div id="reminderHighlights" class="reminder-list"></div>
 
         <div id="recordsPanel" class="records-panel hidden">

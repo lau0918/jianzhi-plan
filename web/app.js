@@ -183,7 +183,7 @@ function goalMessage(goal) {
   if (!goal || goal.current_weight == null || goal.target_weight == null) {
     return {
       headline: "先设置减脂目标",
-      subline: "填写开始日期、初始体重和目标体重后，这里会显示进度。",
+      subline: "设置后显示目标进度",
     };
   }
 
@@ -195,18 +195,18 @@ function goalMessage(goal) {
 
   if (goal.pace_status === "behind" || (hasStart && hasCurrent && current > start)) {
     return {
-      headline: "最近有反弹，先稳住节奏",
-      subline: "先回到进食窗口内，不需要过度补偿。",
+      headline: "出现反弹，先稳住",
+      subline: "先回到窗口内进食",
     };
   }
 
   if (goal.reached === true) {
     return {
-      headline: "你已经达标，接下来重点是稳定",
+      headline: "已达标，继续稳定",
       subline:
         goal.lost_weight != null
-          ? `当前体重已进入目标范围，比开始时轻了 ${fmtWeightAbs(goal.lost_weight)}。`
-          : "当前体重已经进入目标范围，继续保持节奏。",
+          ? `较起始 -${fmtWeightAbs(goal.lost_weight)}`
+          : "保持当前节奏",
     };
   }
 
@@ -215,14 +215,14 @@ function goalMessage(goal) {
       headline: `距离目标还差 ${left.toFixed(1)} kg`,
       subline:
         goal.lost_weight != null
-          ? `比开始时轻了 ${fmtWeightAbs(goal.lost_weight)}。`
-          : "正在朝目标前进，继续保持节奏。",
+          ? `较起始 -${fmtWeightAbs(goal.lost_weight)}`
+          : "继续执行",
     };
   }
 
   return {
     headline: "先设置减脂目标",
-    subline: "填写开始日期、初始体重和目标体重后，这里会显示进度。",
+    subline: "设置后显示目标进度",
   };
 }
 
@@ -652,30 +652,21 @@ function renderToday(data) {
 function renderCoach(data) {
   const today = data.today || {};
   const coach = data.coach || {};
-  const focusEl = document.getElementById("coachFocus");
   const msgEl = document.getElementById("coachMessage");
   const statusEl = document.getElementById("coachStatus");
   const actionsEl = document.getElementById("coachActions");
   const toggleBtn = document.getElementById("toggleCoachBtn");
-
-  focusEl.textContent = coach.focus || "执行重点";
-  msgEl.textContent = coach.message || "保持节奏";
+  msgEl.textContent = coach.message || "睡眠与运动可选";
 
   const tone = coach.status_tone || "neutral";
   const statusClass = tone === "bad" ? "status-bad" : tone === "good" ? "status-good" : "status-neutral";
   statusEl.className = `status-badge ${statusClass}`;
-  statusEl.textContent = coach.status_label || "待跟进";
+  statusEl.textContent = coach.status_label || "待完成";
   actionsEl.classList.toggle("hidden", !state.coachExpanded);
-  toggleBtn.textContent = state.coachExpanded ? "收起动作" : "展开动作";
+  toggleBtn.textContent = state.coachExpanded ? "收起" : "更多动作";
 
   document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
-  const sleepFill = document.getElementById("sleepBarFill");
-  const exerciseFill = document.getElementById("exerciseBarFill");
-  const sleepRatio = Math.max(0, Math.min(100, Math.round((Number(today.sleep_hours || 0) / 8) * 100)));
-  const exerciseRatio = Math.max(0, Math.min(100, Math.round((Number(today.exercise_minutes || 0) / 30) * 100)));
-  if (sleepFill) sleepFill.style.width = `${sleepRatio}%`;
-  if (exerciseFill) exerciseFill.style.width = `${exerciseRatio}%`;
 }
 
 function goalFilled(goal) {
@@ -700,36 +691,36 @@ function renderReminders(data) {
     const flag = mealFlag(latestMeal, data.plan);
     latestMealEl.textContent = `${latestMeal.time.slice(5, 16)} · ${latestMeal.food} · ${flag}`;
   } else {
-    latestMealEl.textContent = "最近一次：暂无";
+    latestMealEl.textContent = "最近一餐：暂无";
   }
 
   list.innerHTML = "";
 
   if (anomalies.length > 0) {
-    title.textContent = "优先处理偏离";
+    title.textContent = "偏离风险";
     summary.textContent = `近7天偏离 ${anomalies.length} 天`;
     anomalies.slice(0, 2).forEach((snapshot) => {
-      appendReminderItem(list, "bad", `${snapshot.label}有窗口外进食`, reminderDetail(snapshot, data));
+      appendReminderItem(list, "bad", `${snapshot.label}窗口外`, reminderDetail(snapshot, data));
     });
     return;
   }
 
   if (missing.length > 0) {
-    title.textContent = "优先补记录";
+    title.textContent = "记录缺口";
     summary.textContent = `近7天缺记录 ${missing.length} 天`;
     missing.slice(0, 2).forEach((snapshot) => {
-      appendReminderItem(list, "neutral", `${snapshot.label}还没记录进食`, reminderDetail(snapshot, data));
+      appendReminderItem(list, "neutral", `${snapshot.label}未记录`, reminderDetail(snapshot, data));
     });
     return;
   }
 
-  title.textContent = "本周稳定";
+  title.textContent = "状态稳定";
   summary.textContent = "近7天无偏离";
   appendReminderItem(
     list,
     "good",
-    "继续保持当前节奏",
-    `最近7天有 ${data.week_stats?.ok_days ?? 0} 天进食都在窗口内。`
+    "节奏稳定",
+    `窗口内执行 ${data.week_stats?.ok_days ?? 0} 天`
   );
 }
 
@@ -742,7 +733,7 @@ function renderFeed(data) {
   container.innerHTML = "";
   const filtered = groupFeed(data);
   const blocks = state.feedShowAll ? filtered : filtered.slice(0, state.feedDefaultLimit);
-  toggleFeedBtn.textContent = state.feedExpanded ? "收起记录" : "查看全部记录";
+  toggleFeedBtn.textContent = state.feedExpanded ? "收起" : "全部记录";
   panel.classList.toggle("hidden", !state.feedExpanded);
   if (!state.feedExpanded) return;
 

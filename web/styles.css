@@ -349,8 +349,8 @@ h4 {
 .today-hero-card .status-copy {
   margin-top: 6px;
   color: #445064;
-  font-size: 17px;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 640;
 }
 
 .today-hero-card .status-rule {
@@ -419,15 +419,20 @@ h4 {
 
 .coach-card {
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   box-shadow: var(--soft-shadow);
 }
 
-.coach-head {
+.coach-head,
+.compact-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.compact-card .section-kicker {
+  font-size: 12px;
 }
 
 .coach-head-actions {
@@ -440,7 +445,12 @@ h4 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
+}
+
+.compact-chips .status-badge {
+  min-height: 24px;
+  padding: 4px 8px;
 }
 
 .coach-bars {
@@ -481,7 +491,7 @@ h4 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .coach-actions.hidden {
@@ -489,10 +499,10 @@ h4 {
 }
 
 .status-badge {
-  padding: 6px 10px;
-  min-height: 28px;
+  padding: 5px 9px;
+  min-height: 26px;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -529,7 +539,7 @@ h4 {
 .status-rule {
   margin: 8px 0 0;
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .status-actions {
@@ -623,7 +633,7 @@ h4 {
   background: #fff;
   border: 1px solid #d6e7f6;
   color: #3f556b;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -636,7 +646,7 @@ h4 {
 .reminder-list {
   display: grid;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .risk-meter {
@@ -656,7 +666,7 @@ h4 {
 }
 
 .reminder-item {
-  padding: 10px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--card-soft);
@@ -683,15 +693,27 @@ h4 {
 }
 
 .reminder-item-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .reminder-item-detail {
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--sub);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.45;
+}
+
+.micro-note {
+  margin: 6px 0 0;
+  color: #647287;
+  font-size: 12px;
+}
+
+.compact-summary {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .records-panel {
