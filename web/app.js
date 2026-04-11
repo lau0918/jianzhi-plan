@@ -846,7 +846,7 @@ function renderCoach(data) {
   statusEl.className = `status-badge ${statusClass}`;
   statusEl.textContent = coach.status_label || "待完成";
   actionsEl.classList.toggle("hidden", !state.coachExpanded);
-  toggleBtn.textContent = state.coachExpanded ? "收起" : "更多动作";
+  toggleBtn.textContent = state.coachExpanded ? "收起" : "运动动作";
 
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
   if (tone === "bad") {
@@ -856,7 +856,7 @@ function renderCoach(data) {
   } else if (tone === "neutral") {
     msgEl.textContent = "补齐";
   } else {
-    msgEl.textContent = (coach.message || "睡眠与运动可选").split("。")[0];
+    msgEl.textContent = (coach.message || "运动可选").split("。")[0];
   }
 }
 
@@ -1092,29 +1092,13 @@ async function onWeightSubmit() {
   });
 }
 
-function onSleepPreset(hours, label) {
+function onExercisePreset(kind, minutes, label) {
   return async () => {
     const confirmed = window.confirm(`${label}？`);
     if (!confirmed) return;
-    await withThrottle(`sleep-${hours}`, async () => {
+    await withThrottle(`exercise-${kind}-${minutes}`, async () => {
       try {
-        const data = await apiPost("/api/sleep", { hours, note: `一键打卡:${label}` });
-        setMessage(syncOutcomeText(`已记录睡眠：${label}`, data));
-        await refreshStatus();
-      } catch (err) {
-        setMessage(err.message, true);
-      }
-    });
-  };
-}
-
-function onExercisePreset(minutes, label) {
-  return async () => {
-    const confirmed = window.confirm(`${label}？`);
-    if (!confirmed) return;
-    await withThrottle(`exercise-${minutes}`, async () => {
-      try {
-        const data = await apiPost("/api/exercise", { minutes, kind: "快走", note: `一键打卡:${label}` });
+        const data = await apiPost("/api/exercise", { minutes, kind, note: `一键打卡:${label}` });
         setMessage(syncOutcomeText(`已记录运动：${label}`, data));
         await refreshStatus();
       } catch (err) {
@@ -1191,11 +1175,9 @@ function setupEvents() {
     state.coachExpanded = !state.coachExpanded;
     renderCoach(state.data);
   });
-  document.getElementById("sleepShortBtn").addEventListener("click", onSleepPreset(5.5, "睡眠<6h"));
-  document.getElementById("sleepMidBtn").addEventListener("click", onSleepPreset(6.5, "睡眠6-7h"));
-  document.getElementById("sleepLongBtn").addEventListener("click", onSleepPreset(7.5, "睡眠>7h"));
-  document.getElementById("exercise20Btn").addEventListener("click", onExercisePreset(20, "运动20分钟"));
-  document.getElementById("exercise10Btn").addEventListener("click", onExercisePreset(10, "再加10分钟"));
+  document.getElementById("exerciseWalkBtn").addEventListener("click", onExercisePreset("步行", 20, "步行20分钟"));
+  document.getElementById("exerciseRunBtn").addEventListener("click", onExercisePreset("跑步", 20, "跑步20分钟"));
+  document.getElementById("exerciseRideBtn").addEventListener("click", onExercisePreset("骑行", 30, "骑行30分钟"));
 
   document.getElementById("saveMealBtn").addEventListener("click", onMealSubmit);
   document.getElementById("saveWeightBtn").addEventListener("click", onWeightSubmit);
