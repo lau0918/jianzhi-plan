@@ -36,11 +36,11 @@ function withThrottle(actionKey, fn) {
 
 function syncOutcomeText(baseText, data) {
   if (!data) return baseText;
-  if (data.cloud_synced === true) return `${baseText}，已同步`;
+  if (data.cloud_synced === true) return `${baseText}，云端已记`;
   if (data.cloud_synced === false && data.cloud_error) {
-    return `${baseText}，已保存，本地可用`;
+    return `${baseText}，仅本地`;
   }
-  return `${baseText}，已保存`;
+  return `${baseText}`;
 }
 
 function hasUnsavedInput(sheetId) {
@@ -548,13 +548,13 @@ function openSheet(id) {
 function renderHero(data) {
   const goal = data.goal || {};
   const visual = computeGoalVisual(goal);
-  const goalSource = data.goal_source === "notion" ? "Notion 回填" : data.goal_source === "local" ? "本地缓存" : "未设置";
+  const goalSource = data.goal_source === "notion" ? "云端" : data.goal_source === "local" ? "本地" : "未设";
 
   document.getElementById("startWeightInline").textContent = fmtWeight(goal.start_weight);
   document.getElementById("currentWeightInline").textContent = fmtWeight(goal.current_weight);
   document.getElementById("targetWeightInline").textContent = fmtWeight(goal.target_weight);
   document.getElementById("goalProgressText").textContent = visual.label;
-  document.getElementById("goalSourceText").textContent = `数据状态：${goalSource}`;
+  document.getElementById("goalSourceText").textContent = `状态：${goalSource}`;
 
   const progressText = document.getElementById("goalProgressText");
   const progressBar = document.getElementById("goalProgressBar");
