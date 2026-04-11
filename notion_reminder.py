@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Send Telegram reminders if no meal logged today (Notion-backed)."""
+"""Send Telegram meal reminders at fixed checkpoints (Notion-backed)."""
 
 from __future__ import annotations
 

@@ -23,7 +23,6 @@ from fasting_tracker import (
     WeightRecord,
     SleepRecord,
     ExerciseRecord,
-    WaistRecord,
     calc_streak,
     evaluate_day,
     hours_between,
@@ -46,7 +45,6 @@ NOTION_WEIGHTS_DB = os.getenv("NOTION_WEIGHTS_DB", "").strip()
 NOTION_GOALS_DB = os.getenv("NOTION_GOALS_DB", "").strip()
 NOTION_SLEEP_DB = os.getenv("NOTION_SLEEP_DB", "").strip()
 NOTION_EXERCISE_DB = os.getenv("NOTION_EXERCISE_DB", "").strip()
-NOTION_WAIST_DB = os.getenv("NOTION_WAIST_DB", "").strip()
 
 
 def _notion_enabled() -> bool:
@@ -58,7 +56,6 @@ def _notion_enabled() -> bool:
             or NOTION_GOALS_DB
             or NOTION_SLEEP_DB
             or NOTION_EXERCISE_DB
-            or NOTION_WAIST_DB
         )
     )
 
@@ -158,18 +155,6 @@ def _notion_sync_exercise(item: ExerciseRecord) -> None:
     _notion_create_page(NOTION_EXERCISE_DB, props)
 
 
-def _notion_sync_waist(item: WaistRecord) -> None:
-    if not NOTION_WAIST_DB:
-        return
-    props = {
-        "腰围记录": {"title": [{"text": {"content": f"{item.cm}cm"}}]},
-        "时间": {"date": {"start": _notion_datetime(item.time)}},
-        "腰围(cm)": {"number": item.cm},
-        "备注": {"rich_text": [{"text": {"content": item.note or ""}}]},
-    }
-    _notion_create_page(NOTION_WAIST_DB, props)
-
-
 def _goal_pace_label(value: str) -> str:
     if value in ("reached",):
         return "已达标"
@@ -258,7 +243,6 @@ class TrackerHandler(BaseHTTPRequestHandler):
         weights = data.get("weight_logs", [])
         sleeps = data.get("sleep_logs", [])
         exercises = data.get("exercise_logs", [])
-        waists = data.get("waist_logs", [])
 
         elapsed_hours = 0.0
         remaining_hours = 16.0
@@ -290,7 +274,6 @@ class TrackerHandler(BaseHTTPRequestHandler):
             "weights": sorted(weights, key=lambda w: w["time"], reverse=True),
             "sleeps": sorted(sleeps, key=lambda s: s["time"], reverse=True),
             "exercises": sorted(exercises, key=lambda e: e["time"], reverse=True),
-            "waists": sorted(waists, key=lambda w: w["time"], reverse=True),
             "today": today_status,
             "coach": coach,
             "week_stats": week,
@@ -333,8 +316,6 @@ class TrackerHandler(BaseHTTPRequestHandler):
             return self._handle_sleep(body)
         if self.path == "/api/exercise":
             return self._handle_exercise(body)
-        if self.path == "/api/waist":
-            return self._handle_waist(body)
         if self.path == "/api/window":
             return self._handle_window(body)
         if self.path == "/api/goal":
@@ -531,31 +512,6 @@ class TrackerHandler(BaseHTTPRequestHandler):
             _notion_sync_exercise(item)
         label = kind or "运动"
         return self._json_response({"ok": True, "message": f"已记录运动: {item.time} | {label} {item.minutes} 分钟"})
-
-    def _handle_waist(self, body: Dict[str, Any]) -> None:
-        data = load_data()
-        try:
-            cm = float(body.get("cm", 0))
-        except (TypeError, ValueError):
-            return self._json_response({"ok": False, "error": "腰围数值无效"}, HTTPStatus.BAD_REQUEST)
-        if cm <= 0 or cm > 200:
-            return self._json_response({"ok": False, "error": "腰围需在 1-200"}, HTTPStatus.BAD_REQUEST)
-
-        raw_time = str(body.get("time", "")).strip()
-        note = str(body.get("note", "")).strip()
-        dt = parse_time(raw_time) if raw_time else now_local()
-
-        item = WaistRecord(
-            date=dt.strftime(DATE_FMT),
-            time=dt.strftime(TIME_FMT),
-            cm=round(cm, 1),
-            note=note,
-        )
-        data.setdefault("waist_logs", []).append(asdict(item))
-        save_data(data)
-        if _notion_enabled():
-            _notion_sync_waist(item)
-        return self._json_response({"ok": True, "message": f"已记录腰围: {item.time} | {item.cm} cm"})
 
     def _handle_window(self, body: Dict[str, Any]) -> None:
         data = load_data()

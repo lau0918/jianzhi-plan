@@ -1,14 +1,17 @@
 # 减脂执行跟踪程序（8+16）
 
+当前版本聚焦一个目标：帮助个人用户按 8+16 规则稳定执行减脂计划。
+
 支持：
 
 - 固定进食窗口（8小时）执行跟踪
 - 每次进食记录（时间、食物、备注）
-- 每日体重记录与趋势统计
-- 减脂目标总览（开始日期、初始体重、目标体重、当前体重、是否达标）
+- 每日体重记录与周期趋势统计
+- 目标总览（开始日期、初始体重、目标体重、当前体重、是否达标）
+- 教练复盘（睡眠 / 运动的一键打卡与当日建议）
 - 自动导出 Excel 分析文件
-- 可选同步到 Notion（Meals / Weights / Goals）
-- 可选 Telegram 提醒（基于 Notion）
+- 可选同步到 Notion（Meals / Weights / Goals / Sleep / Exercise）
+- 可选 Telegram 三餐提醒（基于 Notion）
 
 ## 命令行使用
 
@@ -49,12 +52,12 @@ python3 mobile_server.py --host 0.0.0.0 --port 8000
 2. 查电脑局域网 IP（如 `192.168.1.8`）。
 3. 手机浏览器打开 `http://192.168.1.8:8000`。
 
-首页交互（极简）：
+首页交互：
 
 - 减脂总览
 - 今日状态
-- 两个主按钮：记录进食、记录体重
-- 记录列表（进食/体重，默认最近5条）
+- 教练复盘（睡眠 / 运动一键打卡）
+- 本周提醒与记录列表（默认最近5条）
 - 设置中统一编辑目标和进食窗口
 
 ## 数据文件
@@ -69,6 +72,8 @@ Excel 工作表：
 - `MealRecords`
 - `WeightRecords`
 - `DailySummary`
+- `SleepRecords`
+- `ExerciseRecords`
 
 ## 自动化回归测试
 
@@ -80,12 +85,14 @@ python3 regression_tests.py
 
 ## Telegram 提醒（Notion 数据源）
 
-当当天还没有进食记录时，按固定时间发送提醒。推荐用 GitHub Actions 定时执行。
+提醒脚本会在固定时间发送三次提醒，帮助你在进食窗口内完成三餐记录。推荐用 GitHub Actions 定时执行。
 
 需要配置的 GitHub Secrets：
 
 - `NOTION_TOKEN`
 - `NOTION_MEALS_DB`
+- `NOTION_SLEEP_DB`（可选）
+- `NOTION_EXERCISE_DB`（可选）
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `REMINDER_WINDOW`（例如 `07:00-15:00`，可选）

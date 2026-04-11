@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""8+16 fasting tracker with meal, weight, stats and excel export."""
+"""8+16 fasting tracker with meal, weight, sleep, exercise, stats and excel export."""
 
 from __future__ import annotations
 
@@ -65,14 +65,6 @@ class ExerciseRecord:
     note: str = ""
 
 
-@dataclass
-class WaistRecord:
-    date: str
-    time: str
-    cm: float = 0.0
-    note: str = ""
-
-
 def now_local() -> datetime:
     return datetime.now().replace(second=0, microsecond=0)
 
@@ -100,7 +92,6 @@ def load_data() -> Dict[str, Any]:
             "weight_logs": [],
             "sleep_logs": [],
             "exercise_logs": [],
-            "waist_logs": [],
             "plan": dict(DEFAULT_PLAN),
             "goal": dict(DEFAULT_GOAL),
         }
@@ -114,7 +105,8 @@ def load_data() -> Dict[str, Any]:
     data.setdefault("weight_logs", [])
     data.setdefault("sleep_logs", [])
     data.setdefault("exercise_logs", [])
-    data.setdefault("waist_logs", [])
+    # Drop retired fields on the next save so runtime behavior matches the product.
+    data.pop("waist_logs", None)
     plan = data.get("plan") or {}
     data["plan"] = {
         "start": str(plan.get("start") or DEFAULT_PLAN["start"]),
@@ -212,7 +204,6 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
     weight_logs = [w for w in data.get("weight_logs", []) if w.get("date") == day]
     sleep_logs = [s for s in data.get("sleep_logs", []) if s.get("date") == day]
     exercise_logs = [e for e in data.get("exercise_logs", []) if e.get("date") == day]
-    waist_logs = [w for w in data.get("waist_logs", []) if w.get("date") == day]
     meal_out_window = [m for m in meals if not is_meal_in_window(m.get("time", ""), plan)]
     out_count = len(meal_out_window)
 
@@ -227,10 +218,6 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
     exercise_total = None
     if exercise_logs:
         exercise_total = sum(int(e.get("minutes", 0) or 0) for e in exercise_logs)
-
-    waist_latest = None
-    if waist_logs:
-        waist_latest = sorted(waist_logs, key=lambda w: w.get("time", ""), reverse=True)[0].get("cm")
 
     if out_count > 0:
         status = "未达标"
@@ -260,7 +247,6 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "weight": weight_latest,
         "sleep_hours": sleep_latest,
         "exercise_minutes": exercise_total,
-        "waist_cm": waist_latest,
     }
 
 
@@ -426,7 +412,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
     weights = data.get("weight_logs", [])
     sleeps = data.get("sleep_logs", [])
     exercises = data.get("exercise_logs", [])
-    waists = data.get("waist_logs", [])
     success_count = sum(1 for r in records if r.get("success"))
     streak = calc_streak(records)
     active_fast = data.get("active_fast") or ""
@@ -460,7 +445,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
         ["累计体重记录条数", len(weights)],
         ["累计睡眠记录条数", len(sleeps)],
         ["累计运动记录条数", len(exercises)],
-        ["累计腰围记录条数", len(waists)],
         ["最后导出时间", now_local().strftime(TIME_FMT)],
     ]
 
@@ -484,10 +468,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
         [e.get("date", ""), e.get("time", ""), e.get("minutes", ""), e.get("kind", ""), e.get("note", "")]
         for e in sorted(exercises, key=lambda item: item.get("time", ""), reverse=True)
     ]
-    waist_rows = [
-        [w.get("date", ""), w.get("time", ""), w.get("cm", ""), w.get("note", "")]
-        for w in sorted(waists, key=lambda item: item.get("time", ""), reverse=True)
-    ]
 
     today = now_local().date()
     summary_days_rows = [
@@ -501,7 +481,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
             s["weight"],
             s.get("sleep_hours"),
             s.get("exercise_minutes"),
-            s.get("waist_cm"),
         ]
         for s in [evaluate_day((today - timedelta(days=i)).strftime(DATE_FMT), data) for i in range(30)]
     ]
@@ -511,12 +490,11 @@ def export_excel_report(data: Dict[str, Any]) -> None:
     sheet3 = _sheet_xml(["日期", "进食时间", "食物", "是否在8小时窗口", "备注"], meal_rows)
     sheet4 = _sheet_xml(["日期", "记录时间", "体重(kg)", "备注"], weight_rows)
     sheet5 = _sheet_xml(
-        ["日期", "状态", "原因", "进食次数", "窗口外进食次数", "断食时长", "体重(kg)", "睡眠(小时)", "运动(分钟)", "腰围(cm)"],
+        ["日期", "状态", "原因", "进食次数", "窗口外进食次数", "断食时长", "体重(kg)", "睡眠(小时)", "运动(分钟)"],
         summary_days_rows,
     )
     sheet6 = _sheet_xml(["日期", "记录时间", "睡眠时长(小时)", "备注"], sleep_rows)
     sheet7 = _sheet_xml(["日期", "记录时间", "运动时长(分钟)", "运动类型", "备注"], exercise_rows)
-    sheet8 = _sheet_xml(["日期", "记录时间", "腰围(cm)", "备注"], waist_rows)
 
     content_types = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -530,7 +508,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
   <Override PartName="/xl/worksheets/sheet5.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
   <Override PartName="/xl/worksheets/sheet6.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
   <Override PartName="/xl/worksheets/sheet7.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-  <Override PartName="/xl/worksheets/sheet8.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
 </Types>
 """
     root_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -548,7 +525,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
     <sheet name="DailySummary" sheetId="5" r:id="rId5"/>
     <sheet name="SleepRecords" sheetId="6" r:id="rId6"/>
     <sheet name="ExerciseRecords" sheetId="7" r:id="rId7"/>
-    <sheet name="WaistRecords" sheetId="8" r:id="rId8"/>
   </sheets>
 </workbook>
 """
@@ -561,7 +537,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
   <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet5.xml"/>
   <Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet6.xml"/>
   <Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet7.xml"/>
-  <Relationship Id="rId8" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet8.xml"/>
 </Relationships>
 """
 
@@ -577,7 +552,6 @@ def export_excel_report(data: Dict[str, Any]) -> None:
         zf.writestr("xl/worksheets/sheet5.xml", sheet5)
         zf.writestr("xl/worksheets/sheet6.xml", sheet6)
         zf.writestr("xl/worksheets/sheet7.xml", sheet7)
-        zf.writestr("xl/worksheets/sheet8.xml", sheet8)
 
 
 def save_data(data: Dict[str, Any]) -> None:

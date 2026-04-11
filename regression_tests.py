@@ -79,6 +79,7 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(len(data.get("records", [])), 1)
         self.assertEqual(len(data.get("meals", [])), 1)
         self.assertEqual(len(data.get("weight_logs", [])), 1)
+        self.assertNotIn("waist_logs", data)
 
         excel_path = self.tmpdir / "fasting_report.xlsx"
         self.assertTrue(excel_path.exists())
@@ -89,6 +90,9 @@ class RegressionTests(unittest.TestCase):
         self.assertIn("xl/worksheets/sheet3.xml", names)
         self.assertIn("xl/worksheets/sheet4.xml", names)
         self.assertIn("xl/worksheets/sheet5.xml", names)
+        self.assertIn("xl/worksheets/sheet6.xml", names)
+        self.assertIn("xl/worksheets/sheet7.xml", names)
+        self.assertNotIn("xl/worksheets/sheet8.xml", names)
 
     def test_api_regression(self) -> None:
         old_cwd = Path.cwd()
@@ -138,6 +142,12 @@ class RegressionTests(unittest.TestCase):
             data = post("/api/weight", {"value": 71.8, "time": "2026-04-08 07:20", "note": "晨重"})
             self.assertTrue(data["ok"])
 
+            data = post("/api/sleep", {"hours": 6.5, "note": "一键打卡:睡眠6-7h"})
+            self.assertTrue(data["ok"])
+
+            data = post("/api/exercise", {"minutes": 20, "kind": "快走", "note": "一键打卡:运动20分钟"})
+            self.assertTrue(data["ok"])
+
             data = post("/api/end", {"time": "2026-04-09 12:30", "target": 16, "note": "API回归"})
             self.assertTrue(data["ok"])
             self.assertTrue(data["success"])
@@ -152,6 +162,10 @@ class RegressionTests(unittest.TestCase):
             self.assertEqual(len(final_status["records"]), 1)
             self.assertEqual(len(final_status["meals"]), 1)
             self.assertEqual(len(final_status["weights"]), 1)
+            self.assertEqual(len(final_status["sleeps"]), 1)
+            self.assertEqual(len(final_status["exercises"]), 1)
+            self.assertNotIn("waists", final_status)
+            self.assertIn("coach", final_status)
             self.assertIn("today", final_status)
             self.assertIn("week_stats", final_status)
             self.assertIn("weight_7", final_status)
