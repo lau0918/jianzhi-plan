@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import urllib.request
+import urllib.error
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -28,8 +29,13 @@ def _require_env(name: str, value: str) -> None:
 def _post_json(url: str, payload: dict, headers: dict) -> dict:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore") if exc.fp else ""
+        raise RuntimeError(f"HTTP {exc.code}: {body or exc.reason}") from exc
 
 
 def _notion_query_today_meals() -> int:
