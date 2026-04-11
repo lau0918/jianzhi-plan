@@ -443,6 +443,40 @@ h4 {
   margin-top: 8px;
 }
 
+.coach-bars {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.coach-bar-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-bar-label {
+  color: #607186;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.coach-bar-track {
+  height: 8px;
+  border-radius: 8px;
+  background: #e4ebf5;
+  overflow: hidden;
+}
+
+.coach-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), #22c55e);
+  transition: width 0.35s ease;
+}
+
 .coach-actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -604,6 +638,22 @@ h4 {
   margin-top: 10px;
 }
 
+.risk-meter {
+  margin-top: 8px;
+  height: 7px;
+  border-radius: 8px;
+  background: #e8eef7;
+  overflow: hidden;
+}
+
+.risk-meter-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9bc8ff, #ff9191);
+  transition: width 0.35s ease;
+}
+
 .reminder-item {
   padding: 12px;
   border-radius: 8px;
@@ -639,7 +689,7 @@ h4 {
 .reminder-item-detail {
   margin-top: 4px;
   color: var(--sub);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
 }
 

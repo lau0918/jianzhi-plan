@@ -659,7 +659,7 @@ function renderCoach(data) {
   const toggleBtn = document.getElementById("toggleCoachBtn");
 
   focusEl.textContent = coach.focus || "执行重点";
-  msgEl.textContent = coach.message || "保持节奏，优先完成三餐记录。";
+  msgEl.textContent = coach.message || "保持节奏";
 
   const tone = coach.status_tone || "neutral";
   const statusClass = tone === "bad" ? "status-bad" : tone === "good" ? "status-good" : "status-neutral";
@@ -670,6 +670,12 @@ function renderCoach(data) {
 
   document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
+  const sleepFill = document.getElementById("sleepBarFill");
+  const exerciseFill = document.getElementById("exerciseBarFill");
+  const sleepRatio = Math.max(0, Math.min(100, Math.round((Number(today.sleep_hours || 0) / 8) * 100)));
+  const exerciseRatio = Math.max(0, Math.min(100, Math.round((Number(today.exercise_minutes || 0) / 30) * 100)));
+  if (sleepFill) sleepFill.style.width = `${sleepRatio}%`;
+  if (exerciseFill) exerciseFill.style.width = `${exerciseRatio}%`;
 }
 
 function goalFilled(goal) {
@@ -686,19 +692,22 @@ function renderReminders(data) {
   const anomalies = snapshots.filter((snapshot) => snapshot.status === "未达标");
   const missing = snapshots.filter((snapshot) => snapshot.status === "未记录");
   const latestMeal = (data.meals || [])[0];
+  const riskMeterFill = document.getElementById("riskMeterFill");
+  const riskRatio = Math.max(0, Math.min(100, Math.round((anomalies.length / 7) * 100)));
+  if (riskMeterFill) riskMeterFill.style.width = `${riskRatio}%`;
 
   if (latestMeal && latestMeal.time) {
     const flag = mealFlag(latestMeal, data.plan);
-    latestMealEl.textContent = `最近一次进食：${latestMeal.time.slice(0, 16)} · ${latestMeal.food}（${flag}）`;
+    latestMealEl.textContent = `${latestMeal.time.slice(5, 16)} · ${latestMeal.food} · ${flag}`;
   } else {
-    latestMealEl.textContent = "最近一次进食：暂无记录。";
+    latestMealEl.textContent = "最近一次：暂无";
   }
 
   list.innerHTML = "";
 
   if (anomalies.length > 0) {
     title.textContent = "优先处理偏离";
-    summary.textContent = `近7天有 ${anomalies.length} 天窗口外进食。`;
+    summary.textContent = `近7天偏离 ${anomalies.length} 天`;
     anomalies.slice(0, 2).forEach((snapshot) => {
       appendReminderItem(list, "bad", `${snapshot.label}有窗口外进食`, reminderDetail(snapshot, data));
     });
@@ -706,16 +715,16 @@ function renderReminders(data) {
   }
 
   if (missing.length > 0) {
-    title.textContent = "先补齐记录";
-    summary.textContent = `近7天没有窗口外进食，但有 ${missing.length} 天未记录。`;
+    title.textContent = "优先补记录";
+    summary.textContent = `近7天缺记录 ${missing.length} 天`;
     missing.slice(0, 2).forEach((snapshot) => {
       appendReminderItem(list, "neutral", `${snapshot.label}还没记录进食`, reminderDetail(snapshot, data));
     });
     return;
   }
 
-  title.textContent = "本周执行稳定";
-  summary.textContent = "近7天执行稳定，没有异常。";
+  title.textContent = "本周稳定";
+  summary.textContent = "近7天无偏离";
   appendReminderItem(
     list,
     "good",

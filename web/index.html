@@ -97,7 +97,17 @@
             <span id="coachStatus" class="status-badge status-neutral">今日跟进</span>
           </div>
         </div>
-        <p id="coachMessage" class="status-copy">记录今天的睡眠与运动，帮助稳定节奏。</p>
+        <p id="coachMessage" class="status-copy">保持节奏</p>
+        <div class="coach-bars" aria-label="睡眠和运动完成度">
+          <div class="coach-bar-item">
+            <span class="coach-bar-label">睡眠</span>
+            <div class="coach-bar-track"><div id="sleepBarFill" class="coach-bar-fill"></div></div>
+          </div>
+          <div class="coach-bar-item">
+            <span class="coach-bar-label">运动</span>
+            <div class="coach-bar-track"><div id="exerciseBarFill" class="coach-bar-fill"></div></div>
+          </div>
+        </div>
         <div class="coach-chips">
           <span id="sleepChip" class="chip">睡眠 - h</span>
           <span id="exerciseChip" class="chip">运动 - 分钟</span>
@@ -118,6 +128,9 @@
             <h3 id="reminderTitle">先看风险</h3>
           </div>
           <button id="toggleFeedBtn" class="ghost-link ghost-link-muted">查看全部记录</button>
+        </div>
+        <div class="risk-meter" aria-label="近7天风险比例">
+          <div id="riskMeterFill" class="risk-meter-fill"></div>
         </div>
         <p id="feedSummary" class="status-copy">近7天执行稳定，没有异常。</p>
         <p id="latestMealSummary" class="status-copy">今天最近一次进食：暂无记录。</p>
