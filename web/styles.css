@@ -732,6 +732,24 @@ h4 {
   color: #1d4ed8;
 }
 
+.tag-toggle-btn {
+  margin-top: 10px;
+  border: 1px dashed #c6d6e8;
+  background: #f8fbff;
+  color: #375472;
+  border-radius: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.meal-tag-fields {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e4ebf2;
+}
+
 .mini-chip {
   display: inline-flex;
   align-items: center;
@@ -1006,6 +1024,17 @@ h4 {
   gap: 12px;
   min-width: 0;
   flex: 1;
+}
+
+.late-tag-btn {
+  border: 1px solid #c9d9ea;
+  background: #f4f8fd;
+  color: #2f5f91;
+  border-radius: 8px;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .feed-item-copy {

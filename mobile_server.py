@@ -248,6 +248,40 @@ def _notion_sync_page(database_id: str, properties: Dict[str, Any]) -> tuple[boo
         return False, message
 
 
+def _notion_update_page(page_id: str, properties: Dict[str, Any]) -> tuple[bool, str | None]:
+    normalized = str(page_id or "").strip()
+    if not NOTION_TOKEN or not normalized:
+        return False, "未配置 Notion"
+    try:
+        _notion_request_json(f"/pages/{normalized}", payload={"properties": properties}, method="PATCH")
+        return True, None
+    except Exception as exc:
+        message = str(exc) or "未知错误"
+        print(f"警告: Notion 更新失败: {message}")
+        return False, message
+
+
+def _notion_find_meal_page_id(db_id: str, title_prop: str, time_prop: str, meal: MealRecord) -> str | None:
+    try:
+        payload = {
+            "page_size": 1,
+            "filter": {
+                "and": [
+                    {"property": title_prop, "title": {"equals": meal.food}},
+                    {"property": time_prop, "date": {"equals": _notion_datetime(meal.time)}},
+                ]
+            },
+            "sorts": [{"timestamp": "last_edited_time", "direction": "descending"}],
+        }
+        result = _notion_request_json(f"/databases/{db_id}/query", payload=payload, method="POST")
+        rows = result.get("results") or []
+        if rows and isinstance(rows[0], dict):
+            return str(rows[0].get("id") or "").strip() or None
+    except Exception:
+        return None
+    return None
+
+
 def _notion_query_all_page_ids(database_id: str) -> list[str]:
     page_ids: list[str] = []
     start_cursor: str | None = None
@@ -295,7 +329,7 @@ def _resolve_reset_database_ids() -> Dict[str, str]:
     return resolved
 
 
-def _notion_sync_meal(meal: MealRecord, in_window: bool) -> tuple[bool, str | None]:
+def _notion_sync_meal(meal: MealRecord, in_window: bool, prefer_update: bool = False) -> tuple[bool, str | None]:
     db_id = _resolve_notion_database_id(NOTION_MEALS_DB, "进食记录")
     if not db_id:
         return False, "未配置进食表"
@@ -339,6 +373,10 @@ def _notion_sync_meal(meal: MealRecord, in_window: bool) -> tuple[bool, str | No
             props[risk_text_prop] = {"rich_text": [{"text": {"content": "、".join(risk_scenarios)}}]}
     if note_prop:
         props[note_prop] = {"rich_text": [{"text": {"content": meal.note or ""}}]}
+    if prefer_update:
+        page_id = _notion_find_meal_page_id(db_id, title_prop, time_prop, meal)
+        if page_id:
+            return _notion_update_page(page_id, props)
     return _notion_sync_page(db_id, props)
 
 
@@ -687,6 +725,8 @@ class TrackerHandler(BaseHTTPRequestHandler):
             return self._handle_checkin(body)
         if route == "/api/meal":
             return self._handle_meal(body)
+        if route == "/api/meal/update":
+            return self._handle_meal_update(body)
         if route == "/api/weight":
             return self._handle_weight(body)
         if route == "/api/sleep":
@@ -803,14 +843,16 @@ class TrackerHandler(BaseHTTPRequestHandler):
             risk_scenarios=risk_scenarios,
             note=note,
         )
-        data.setdefault("meals", []).append(asdict(meal))
+        meal_dict = asdict(meal)
+        meal_dict["id"] = str(body.get("meal_id", "")).strip() or f"meal-{meal_dt.strftime('%Y%m%d%H%M')}-{len(data.setdefault('meals', [])) + 1}"
+        data.setdefault("meals", []).append(meal_dict)
         save_data(data)
 
         in_window = is_meal_in_window(meal.time, data.get("plan", DEFAULT_PLAN))
         cloud_synced = None
         cloud_error = None
         if _notion_enabled():
-            cloud_synced, cloud_error = _notion_sync_meal(meal, in_window)
+            cloud_synced, cloud_error = _notion_sync_meal(meal, in_window, prefer_update=True)
         return self._json_response(
             {
                 "ok": True,
@@ -818,6 +860,74 @@ class TrackerHandler(BaseHTTPRequestHandler):
                 "in_window": in_window,
                 "cloud_synced": cloud_synced,
                 "cloud_error": cloud_error,
+            }
+        )
+
+    def _handle_meal_update(self, body: Dict[str, Any]) -> None:
+        data = load_data()
+        meals = data.setdefault("meals", [])
+        if not meals:
+            return self._json_response({"ok": False, "error": "暂无进食记录可补标签"}, HTTPStatus.BAD_REQUEST)
+
+        meal_id = str(body.get("meal_id", "")).strip()
+        meal_time = str(body.get("time", "")).strip()
+        meal_food = str(body.get("food", "")).strip()
+        target_index = -1
+
+        if meal_id:
+            for idx in range(len(meals) - 1, -1, -1):
+                if str(meals[idx].get("id", "")).strip() == meal_id:
+                    target_index = idx
+                    break
+        if target_index < 0 and meal_time and meal_food:
+            for idx in range(len(meals) - 1, -1, -1):
+                item = meals[idx]
+                if str(item.get("time", "")).strip() == meal_time and str(item.get("food", "")).strip() == meal_food:
+                    target_index = idx
+                    break
+        if target_index < 0 and meal_time:
+            for idx in range(len(meals) - 1, -1, -1):
+                if str(meals[idx].get("time", "")).strip() == meal_time:
+                    target_index = idx
+                    break
+        if target_index < 0:
+            return self._json_response({"ok": False, "error": "未找到待补标签的记录"}, HTTPStatus.BAD_REQUEST)
+
+        target = dict(meals[target_index])
+        if "meal_amount" in body:
+            target["meal_amount"] = str(body.get("meal_amount", "正常")).strip() or "正常"
+        if "diet_types" in body:
+            target["diet_types"] = _coerce_text_list(body.get("diet_types"))
+        if "risk_scenarios" in body:
+            target["risk_scenarios"] = _coerce_text_list(body.get("risk_scenarios"))
+        if "note" in body:
+            target["note"] = str(body.get("note", "")).strip()
+
+        meals[target_index] = target
+        save_data(data)
+
+        in_window = is_meal_in_window(str(target.get("time", "")), data.get("plan", DEFAULT_PLAN))
+        cloud_synced = None
+        cloud_error = None
+        if _notion_enabled():
+            meal = MealRecord(
+                date=str(target.get("date", "")),
+                time=str(target.get("time", "")),
+                food=str(target.get("food", "")),
+                meal_amount=str(target.get("meal_amount", "正常")),
+                diet_types=_coerce_text_list(target.get("diet_types")),
+                risk_scenarios=_coerce_text_list(target.get("risk_scenarios")),
+                note=str(target.get("note", "")),
+            )
+            cloud_synced, cloud_error = _notion_sync_meal(meal, in_window, prefer_update=True)
+
+        return self._json_response(
+            {
+                "ok": True,
+                "message": f"已补充标签: {target.get('time', '')} | {target.get('food', '')}",
+                "cloud_synced": cloud_synced,
+                "cloud_error": cloud_error,
+                "in_window": in_window,
             }
         )
 

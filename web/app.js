@@ -6,6 +6,8 @@ const state = {
   coachExpanded: false,
   expandedDays: new Set(),
   actionLocks: Object.create(null),
+  mealTagExpanded: false,
+  mealEditTarget: null,
 };
 
 function setMessage(text, isError = false, tone = "error") {
@@ -178,6 +180,58 @@ function resetMealSheetChips() {
   setChipGroupValue("mealAmount", "正常");
   setChipGroupValue("mealDiet", []);
   setChipGroupValue("mealRisk", []);
+}
+
+function mealNeedsTagCompletion(meal) {
+  if (!meal) return false;
+  const amount = String(meal.meal_amount || "正常");
+  const diets = Array.isArray(meal.diet_types) ? meal.diet_types : [];
+  const risks = Array.isArray(meal.risk_scenarios) ? meal.risk_scenarios : [];
+  const note = String(meal.note || "").trim();
+  return amount === "正常" && diets.length === 0 && risks.length === 0 && note === "";
+}
+
+function setMealTagExpanded(expanded) {
+  state.mealTagExpanded = Boolean(expanded);
+  const fields = document.getElementById("mealTagFields");
+  const toggle = document.getElementById("mealTagToggleBtn");
+  if (fields) fields.classList.toggle("hidden", !state.mealTagExpanded);
+  if (toggle) toggle.textContent = state.mealTagExpanded ? "收起标签" : "补充标签（可选）";
+}
+
+function openMealSheetForCreate() {
+  state.mealEditTarget = null;
+  setInputValue("mealFoodInput", "");
+  setInputValue("mealTimeInput", nowLocalInputValue());
+  setInputValue("mealNoteInput", "");
+  resetMealSheetChips();
+  setMealTagExpanded(false);
+  const title = document.getElementById("mealSheetTitle");
+  const saveBtn = document.getElementById("saveMealBtn");
+  if (title) title.textContent = "进食";
+  if (saveBtn) saveBtn.textContent = "快速记录";
+  openSheet("mealSheet");
+}
+
+function openMealSheetForEdit(meal) {
+  if (!meal) return;
+  state.mealEditTarget = {
+    id: meal.id || "",
+    time: meal.time || "",
+    food: meal.food || "",
+  };
+  setInputValue("mealFoodInput", String(meal.food || ""));
+  setInputValue("mealTimeInput", String(meal.time || "").replace(" ", "T"));
+  setInputValue("mealNoteInput", String(meal.note || ""));
+  setChipGroupValue("mealAmount", String(meal.meal_amount || "正常"));
+  setChipGroupValue("mealDiet", Array.isArray(meal.diet_types) ? meal.diet_types : []);
+  setChipGroupValue("mealRisk", Array.isArray(meal.risk_scenarios) ? meal.risk_scenarios : []);
+  setMealTagExpanded(true);
+  const title = document.getElementById("mealSheetTitle");
+  const saveBtn = document.getElementById("saveMealBtn");
+  if (title) title.textContent = "补标签";
+  if (saveBtn) saveBtn.textContent = "保存标签";
+  openSheet("mealSheet");
 }
 
 function nowLocalInputValue() {
@@ -715,10 +769,9 @@ function setInputValue(id, value) {
 function openSheet(id) {
   document.getElementById("sheetMask").classList.remove("hidden");
   document.getElementById(id).classList.remove("hidden");
-  if (id === "mealSheet") {
+  if (id === "mealSheet" && !state.mealEditTarget) {
     const el = document.getElementById("mealTimeInput");
     if (!el.value) setInputValue("mealTimeInput", nowLocalInputValue());
-    resetMealSheetChips();
   }
   if (id === "weightSheet") {
     const el = document.getElementById("weightTimeInput");
@@ -877,19 +930,31 @@ function renderReminders(data) {
 
   list.innerHTML = "";
   const statusTone = stats.outCount > 0 || stats.overCount > 0 ? "bad" : stats.meals.length === 0 ? "neutral" : "good";
-  title.textContent = statusTone === "bad" ? "偏离统计" : statusTone === "neutral" ? "待补记" : "状态稳定";
+  title.textContent = "复盘结论";
   reviewSummary.textContent = `偏离 ${stats.outCount} · 过量 ${stats.overCount} · 外卖 ${stats.takeawayCount}`;
 
-  appendReminderItem(list, statusTone, "本周", `偏离 ${stats.outCount} 次，过量 ${stats.overCount} 次，外卖 ${stats.takeawayCount} 次`);
-  appendReminderItem(list, "neutral", "风险场景", stats.topRisk);
-  appendReminderItem(list, "neutral", "体重变化", stats.weightChange);
+  const todaySnapshot = snapshots[0] || { meals: [] };
+  const todayOut = (todaySnapshot.meals || []).find((meal) => mealFlag(meal, data.plan) === "窗口外");
+  const topReason = todayOut
+    ? `窗口外进食${mealTagSummary(todayOut).length ? `（${mealTagSummary(todayOut)[0]}）` : ""}`
+    : stats.overCount > 0
+      ? "餐量偏大"
+      : stats.takeawayCount > 0
+        ? "外卖偏多"
+        : stats.meals.length === 0
+          ? "未记录进食"
+          : "执行稳定";
+  const weeklyAction = stats.outCount >= 3
+    ? "晚间先喝水10分钟再决定是否进食"
+    : stats.takeawayCount >= 4
+      ? "每天至少1餐改为自煮"
+      : stats.overCount >= 3
+        ? "晚餐固定为正常份"
+        : "固定第一餐时间";
 
-  if (stats.outCount > 0) {
-    const firstOut = snapshots.flatMap((snapshot) => snapshot.meals || []).find((meal) => mealFlag(meal, data.plan) === "窗口外");
-    if (firstOut) {
-      appendReminderItem(list, "bad", "最近偏离", `${firstOut.time.slice(5, 16)} · 窗口外`);
-    }
-  }
+  appendReminderItem(list, statusTone, "今天Top1", topReason);
+  appendReminderItem(list, "neutral", "下周只改1件事", weeklyAction);
+  appendReminderItem(list, "neutral", "最近体重变化", stats.weightChange);
 }
 
 function renderFeed(data) {
@@ -967,6 +1032,9 @@ function renderFeed(data) {
         const item = document.createElement("div");
         item.className = "feed-item";
         const tags = mealTagSummary(meal).map((text) => `<span class="mini-chip">${text}</span>`).join("");
+        const patchBtn = mealNeedsTagCompletion(meal)
+          ? `<button class="late-tag-btn" data-role="meal-patch">补标签</button>`
+          : "";
         item.innerHTML = `
           <span class="feed-item-tag meal-tag">进食</span>
           <div class="feed-item-main">
@@ -975,8 +1043,11 @@ function renderFeed(data) {
               <span>${meal.time.slice(11)} · ${mealFlag(meal, data.plan)}</span>
             </div>
             ${tags ? `<div class="feed-item-tags">${tags}</div>` : ""}
+            ${patchBtn}
           </div>
         `;
+        const patch = item.querySelector('[data-role="meal-patch"]');
+        if (patch) patch.addEventListener("click", () => openMealSheetForEdit(meal));
         body.appendChild(item);
       });
       block.weights.forEach((weight) => {
@@ -1054,12 +1125,27 @@ async function onMealSubmit() {
 
   await withThrottle("saveMeal", async () => {
     try {
-      const data = await apiPost("/api/meal", { food, note, time, meal_amount, diet_types, risk_scenarios });
-      setMessage(syncOutcomeText(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", data), !data.in_window, data.in_window ? "normal" : "warning");
+      const isEdit = Boolean(state.mealEditTarget);
+      const payload = isEdit
+        ? {
+            meal_id: state.mealEditTarget.id,
+            time: state.mealEditTarget.time || time,
+            food: state.mealEditTarget.food || food,
+            meal_amount,
+            diet_types,
+            risk_scenarios,
+            note,
+          }
+        : { food, note, time, meal_amount, diet_types, risk_scenarios };
+      const data = await apiPost(isEdit ? "/api/meal/update" : "/api/meal", payload);
+      const base = isEdit ? "标签已补充" : data.in_window ? "已记录进食" : "已记录，注意这次在窗口外";
+      setMessage(syncOutcomeText(base, data), !isEdit && !data.in_window, !isEdit && data.in_window ? "normal" : !isEdit ? "warning" : "normal");
       setInputValue("mealFoodInput", "");
       setInputValue("mealTimeInput", "");
       setInputValue("mealNoteInput", "");
       resetMealSheetChips();
+      setMealTagExpanded(false);
+      state.mealEditTarget = null;
       closeSheet("mealSheet", { force: true });
       await refreshStatus();
     } catch (err) {
@@ -1169,7 +1255,7 @@ async function onSaveSetting() {
 function setupEvents() {
   document.getElementById("openAuthBtn").addEventListener("click", () => openSheet("authSheet"));
   document.getElementById("openSettingBtn").addEventListener("click", () => openSheet("settingSheet"));
-  document.getElementById("quickMealBtn").addEventListener("click", () => openSheet("mealSheet"));
+  document.getElementById("quickMealBtn").addEventListener("click", openMealSheetForCreate);
   document.getElementById("quickWeightBtn").addEventListener("click", () => openSheet("weightSheet"));
   document.getElementById("toggleCoachBtn").addEventListener("click", () => {
     state.coachExpanded = !state.coachExpanded;
@@ -1209,6 +1295,9 @@ function setupEvents() {
   document.getElementById("toggleFeedBtn").addEventListener("click", () => {
     state.feedExpanded = !state.feedExpanded;
     renderFeed(state.data);
+  });
+  document.getElementById("mealTagToggleBtn").addEventListener("click", () => {
+    setMealTagExpanded(!state.mealTagExpanded);
   });
 
   document.querySelectorAll("[data-chip-group]").forEach((group) => {

@@ -213,6 +213,19 @@ class RegressionTests(unittest.TestCase):
             self.assertTrue(data["ok"])
             self.assertTrue(data["in_window"])
 
+            data = post(
+                "/api/meal/update",
+                {
+                    "time": f"{today} 11:10",
+                    "food": "燕麦+牛奶",
+                    "meal_amount": "正常",
+                    "diet_types": ["自煮"],
+                    "risk_scenarios": ["熬夜"],
+                    "note": "晚补标签",
+                },
+            )
+            self.assertTrue(data["ok"])
+
             data = post("/api/weight", {"value": 71.8, "time": f"{today} 07:20", "note": "晨重"})
             self.assertTrue(data["ok"])
 
@@ -232,10 +245,10 @@ class RegressionTests(unittest.TestCase):
             self.assertIn("pace_status", final_status["goal"])
             self.assertEqual(len(final_status["records"]), 0)
             self.assertEqual(len(final_status["meals"]), 1)
-            self.assertEqual(final_status["meals"][0].get("meal_amount"), "过量")
-            self.assertIn("外卖", final_status["meals"][0].get("diet_types", []))
-            self.assertIn("轻食", final_status["meals"][0].get("diet_types", []))
-            self.assertIn("加班", final_status["meals"][0].get("risk_scenarios", []))
+            self.assertEqual(final_status["meals"][0].get("meal_amount"), "正常")
+            self.assertIn("自煮", final_status["meals"][0].get("diet_types", []))
+            self.assertIn("熬夜", final_status["meals"][0].get("risk_scenarios", []))
+            self.assertEqual(final_status["meals"][0].get("note"), "晚补标签")
             self.assertEqual(len(final_status["weights"]), 1)
             self.assertEqual(len(final_status["sleeps"]), 1)
             self.assertEqual(len(final_status["exercises"]), 1)
