@@ -743,7 +743,6 @@ function renderCoach(data) {
   actionsEl.classList.toggle("hidden", !state.coachExpanded);
   toggleBtn.textContent = state.coachExpanded ? "收起" : "更多动作";
 
-  document.getElementById("sleepChip").textContent = `睡眠 ${fmtHours(today.sleep_hours)}`;
   document.getElementById("exerciseChip").textContent = `运动 ${fmtMinutes(today.exercise_minutes)}`;
   if (tone === "bad") {
     msgEl.textContent = "偏离";
