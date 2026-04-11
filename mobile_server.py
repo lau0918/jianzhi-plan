@@ -125,11 +125,14 @@ def _goal_pace_label(value: str) -> str:
 
 
 class TrackerHandler(BaseHTTPRequestHandler):
-    def _is_write_allowed(self) -> bool:
+    def _is_write_allowed(self, body: Dict[str, Any]) -> bool:
         if not AUTH_TOKEN:
             return True
         header = self.headers.get("X-Auth-Token", "").strip()
-        return header == AUTH_TOKEN
+        if header == AUTH_TOKEN:
+            return True
+        token = str(body.get("auth_token", "")).strip()
+        return token == AUTH_TOKEN
 
     def _json_response(self, payload: Dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -230,12 +233,12 @@ class TrackerHandler(BaseHTTPRequestHandler):
         return self._text_response("Not Found", HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
-        if not self._is_write_allowed():
-            return self._json_response({"ok": False, "error": "未授权"}, HTTPStatus.UNAUTHORIZED)
         try:
             body = self._read_json_body()
         except json.JSONDecodeError:
             return self._json_response({"ok": False, "error": "请求体不是有效 JSON"}, HTTPStatus.BAD_REQUEST)
+        if not self._is_write_allowed(body):
+            return self._json_response({"ok": False, "error": "未授权"}, HTTPStatus.UNAUTHORIZED)
 
         if self.path == "/api/start":
             return self._handle_start(body)

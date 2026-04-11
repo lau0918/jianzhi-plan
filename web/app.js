@@ -21,13 +21,17 @@ async function apiGet(url) {
 
 async function apiPost(url, body) {
   const token = localStorage.getItem("auth_token") || "";
+  const payload = body || {};
+  if (token) {
+    payload.auth_token = token;
+  }
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { "X-Auth-Token": token } : {}),
     },
-    body: JSON.stringify(body || {}),
+    body: JSON.stringify(payload),
   });
   const data = await res.json();
   if (!res.ok || !data.ok) throw new Error(data.error || "请求失败");
