@@ -43,6 +43,7 @@ body {
 
 .hero-card,
 .status-card,
+.coach-card,
 .feed-card {
   border: 1px solid var(--line);
   background: var(--card-soft);
@@ -248,6 +249,29 @@ h4 {
 .status-card {
   border-radius: 22px;
   padding: 14px;
+}
+
+.coach-card {
+  border-radius: 22px;
+  padding: 14px;
+}
+
+.coach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.coach-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.coach-card .status-actions {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .status-badge {
@@ -502,6 +526,21 @@ h4 {
   background: rgba(21, 112, 239, 0.12);
 }
 
+.sleep-tag {
+  color: #475467;
+  background: rgba(71, 84, 103, 0.12);
+}
+
+.exercise-tag {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.waist-tag {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.12);
+}
+
 .feed-item-main p {
   margin: 0;
   font-size: 15px;
@@ -714,6 +753,10 @@ button:focus-visible {
   }
 
   .status-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .coach-card .status-actions {
     grid-template-columns: 1fr;
   }
 

@@ -21,6 +21,9 @@ from fasting_tracker import (
     MealRecord,
     Record,
     WeightRecord,
+    SleepRecord,
+    ExerciseRecord,
+    WaistRecord,
     calc_streak,
     evaluate_day,
     hours_between,
@@ -124,6 +127,23 @@ def _goal_pace_label(value: str) -> str:
     return "周期内有望达标"
 
 
+def _coach_message(today: Dict[str, Any]) -> Dict[str, str]:
+    meal_count = int(today.get("meal_count") or 0)
+    out_count = int(today.get("meal_out_window_count") or 0)
+    sleep_hours = today.get("sleep_hours")
+    exercise_minutes = today.get("exercise_minutes")
+
+    if out_count > 0:
+        return {"focus": "窗口纪律", "message": "已出现窗口外进食，下一餐务必回到窗口内。"}
+    if meal_count < 3:
+        return {"focus": "三餐完成", "message": "今天三餐还不完整，按计划补齐下一餐。"}
+    if sleep_hours is not None and sleep_hours < 6:
+        return {"focus": "睡眠修复", "message": "昨晚睡眠偏少，今晚尽量提前入睡。"}
+    if exercise_minutes is not None and exercise_minutes < 20:
+        return {"focus": "运动达标", "message": "今天运动不足，安排一段快走或拉伸。"}
+    return {"focus": "稳定执行", "message": "执行节奏稳定，按计划继续。"}
+
+
 class TrackerHandler(BaseHTTPRequestHandler):
     def _is_write_allowed(self, body: Dict[str, Any]) -> bool:
         if not AUTH_TOKEN:
@@ -185,6 +205,9 @@ class TrackerHandler(BaseHTTPRequestHandler):
         records = data.get("records", [])
         meals = data.get("meals", [])
         weights = data.get("weight_logs", [])
+        sleeps = data.get("sleep_logs", [])
+        exercises = data.get("exercise_logs", [])
+        waists = data.get("waist_logs", [])
 
         elapsed_hours = 0.0
         remaining_hours = 16.0
@@ -200,6 +223,7 @@ class TrackerHandler(BaseHTTPRequestHandler):
         month = period_stats(data, 30)
         goal = goal_stats(data)
 
+        coach = _coach_message(today_status)
         return {
             "ok": True,
             "plan": plan,
@@ -213,7 +237,11 @@ class TrackerHandler(BaseHTTPRequestHandler):
             "records": sorted(records, key=lambda r: r["date"], reverse=True),
             "meals": sorted(meals, key=lambda m: m["time"], reverse=True),
             "weights": sorted(weights, key=lambda w: w["time"], reverse=True),
+            "sleeps": sorted(sleeps, key=lambda s: s["time"], reverse=True),
+            "exercises": sorted(exercises, key=lambda e: e["time"], reverse=True),
+            "waists": sorted(waists, key=lambda w: w["time"], reverse=True),
             "today": today_status,
+            "coach": coach,
             "week_stats": week,
             "month_stats": month,
             "weight_7": weight_stats(data, 7),
@@ -250,6 +278,12 @@ class TrackerHandler(BaseHTTPRequestHandler):
             return self._handle_meal(body)
         if self.path == "/api/weight":
             return self._handle_weight(body)
+        if self.path == "/api/sleep":
+            return self._handle_sleep(body)
+        if self.path == "/api/exercise":
+            return self._handle_exercise(body)
+        if self.path == "/api/waist":
+            return self._handle_waist(body)
         if self.path == "/api/window":
             return self._handle_window(body)
         if self.path == "/api/goal":
@@ -393,6 +427,78 @@ class TrackerHandler(BaseHTTPRequestHandler):
         if _notion_enabled():
             _notion_sync_weight(item)
         return self._json_response({"ok": True, "message": f"已记录体重: {item.time} | {item.weight} kg"})
+
+    def _handle_sleep(self, body: Dict[str, Any]) -> None:
+        data = load_data()
+        try:
+            hours = float(body.get("hours", 0))
+        except (TypeError, ValueError):
+            return self._json_response({"ok": False, "error": "睡眠时长无效"}, HTTPStatus.BAD_REQUEST)
+        if hours <= 0 or hours > 24:
+            return self._json_response({"ok": False, "error": "睡眠时长需在 0-24"}, HTTPStatus.BAD_REQUEST)
+
+        raw_time = str(body.get("time", "")).strip()
+        note = str(body.get("note", "")).strip()
+        dt = parse_time(raw_time) if raw_time else now_local()
+
+        item = SleepRecord(
+            date=dt.strftime(DATE_FMT),
+            time=dt.strftime(TIME_FMT),
+            hours=round(hours, 1),
+            note=note,
+        )
+        data.setdefault("sleep_logs", []).append(asdict(item))
+        save_data(data)
+        return self._json_response({"ok": True, "message": f"已记录睡眠: {item.time} | {item.hours} 小时"})
+
+    def _handle_exercise(self, body: Dict[str, Any]) -> None:
+        data = load_data()
+        try:
+            minutes = int(body.get("minutes", 0))
+        except (TypeError, ValueError):
+            return self._json_response({"ok": False, "error": "运动时长无效"}, HTTPStatus.BAD_REQUEST)
+        if minutes <= 0 or minutes > 480:
+            return self._json_response({"ok": False, "error": "运动时长需在 1-480"}, HTTPStatus.BAD_REQUEST)
+
+        raw_time = str(body.get("time", "")).strip()
+        kind = str(body.get("kind", "")).strip()
+        note = str(body.get("note", "")).strip()
+        dt = parse_time(raw_time) if raw_time else now_local()
+
+        item = ExerciseRecord(
+            date=dt.strftime(DATE_FMT),
+            time=dt.strftime(TIME_FMT),
+            minutes=minutes,
+            kind=kind,
+            note=note,
+        )
+        data.setdefault("exercise_logs", []).append(asdict(item))
+        save_data(data)
+        label = kind or "运动"
+        return self._json_response({"ok": True, "message": f"已记录运动: {item.time} | {label} {item.minutes} 分钟"})
+
+    def _handle_waist(self, body: Dict[str, Any]) -> None:
+        data = load_data()
+        try:
+            cm = float(body.get("cm", 0))
+        except (TypeError, ValueError):
+            return self._json_response({"ok": False, "error": "腰围数值无效"}, HTTPStatus.BAD_REQUEST)
+        if cm <= 0 or cm > 200:
+            return self._json_response({"ok": False, "error": "腰围需在 1-200"}, HTTPStatus.BAD_REQUEST)
+
+        raw_time = str(body.get("time", "")).strip()
+        note = str(body.get("note", "")).strip()
+        dt = parse_time(raw_time) if raw_time else now_local()
+
+        item = WaistRecord(
+            date=dt.strftime(DATE_FMT),
+            time=dt.strftime(TIME_FMT),
+            cm=round(cm, 1),
+            note=note,
+        )
+        data.setdefault("waist_logs", []).append(asdict(item))
+        save_data(data)
+        return self._json_response({"ok": True, "message": f"已记录腰围: {item.time} | {item.cm} cm"})
 
     def _handle_window(self, body: Dict[str, Any]) -> None:
         data = load_data()

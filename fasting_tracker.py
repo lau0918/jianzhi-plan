@@ -48,6 +48,31 @@ class WeightRecord:
     note: str = ""
 
 
+@dataclass
+class SleepRecord:
+    date: str
+    time: str
+    hours: float = 0.0
+    note: str = ""
+
+
+@dataclass
+class ExerciseRecord:
+    date: str
+    time: str
+    minutes: int = 0
+    kind: str = ""
+    note: str = ""
+
+
+@dataclass
+class WaistRecord:
+    date: str
+    time: str
+    cm: float = 0.0
+    note: str = ""
+
+
 def now_local() -> datetime:
     return datetime.now().replace(second=0, microsecond=0)
 
@@ -73,6 +98,9 @@ def load_data() -> Dict[str, Any]:
             "records": [],
             "meals": [],
             "weight_logs": [],
+            "sleep_logs": [],
+            "exercise_logs": [],
+            "waist_logs": [],
             "plan": dict(DEFAULT_PLAN),
             "goal": dict(DEFAULT_GOAL),
         }
@@ -84,6 +112,9 @@ def load_data() -> Dict[str, Any]:
     data.setdefault("records", [])
     data.setdefault("meals", [])
     data.setdefault("weight_logs", [])
+    data.setdefault("sleep_logs", [])
+    data.setdefault("exercise_logs", [])
+    data.setdefault("waist_logs", [])
     plan = data.get("plan") or {}
     data["plan"] = {
         "start": str(plan.get("start") or DEFAULT_PLAN["start"]),
@@ -179,6 +210,9 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
     plan = data.get("plan", DEFAULT_PLAN)
     meals = [m for m in data.get("meals", []) if m.get("date") == day]
     weight_logs = [w for w in data.get("weight_logs", []) if w.get("date") == day]
+    sleep_logs = [s for s in data.get("sleep_logs", []) if s.get("date") == day]
+    exercise_logs = [e for e in data.get("exercise_logs", []) if e.get("date") == day]
+    waist_logs = [w for w in data.get("waist_logs", []) if w.get("date") == day]
     meal_out_window = [m for m in meals if not is_meal_in_window(m.get("time", ""), plan)]
     out_count = len(meal_out_window)
 
@@ -196,6 +230,18 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
     if weight_logs:
         weight_latest = sorted(weight_logs, key=lambda w: w.get("time", ""), reverse=True)[0].get("weight")
 
+    sleep_latest = None
+    if sleep_logs:
+        sleep_latest = sorted(sleep_logs, key=lambda s: s.get("time", ""), reverse=True)[0].get("hours")
+
+    exercise_latest = None
+    if exercise_logs:
+        exercise_latest = sorted(exercise_logs, key=lambda e: e.get("time", ""), reverse=True)[0].get("minutes")
+
+    waist_latest = None
+    if waist_logs:
+        waist_latest = sorted(waist_logs, key=lambda w: w.get("time", ""), reverse=True)[0].get("cm")
+
     return {
         "date": day,
         "status": status,
@@ -205,6 +251,9 @@ def evaluate_day(day: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "fasting_hours": 0.0,
         "fasting_success": False,
         "weight": weight_latest,
+        "sleep_hours": sleep_latest,
+        "exercise_minutes": exercise_latest,
+        "waist_cm": waist_latest,
     }
 
 
