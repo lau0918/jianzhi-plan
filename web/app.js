@@ -149,6 +149,37 @@ function toApiDatetime(inputId) {
   return raw ? raw.replace("T", " ") : "";
 }
 
+function getChipGroup(groupName) {
+  return document.querySelector(`[data-chip-group="${groupName}"]`);
+}
+
+function setChipGroupValue(groupName, valueOrValues) {
+  const group = getChipGroup(groupName);
+  if (!group) return;
+  const mode = group.getAttribute("data-chip-mode") || "single";
+  const values = Array.isArray(valueOrValues) ? valueOrValues.map((item) => String(item)) : [String(valueOrValues || "")];
+  group.querySelectorAll(".chip-toggle").forEach((btn) => {
+    const value = btn.getAttribute("data-value") || "";
+    const active = mode === "single" ? values[0] === value : values.includes(value);
+    btn.classList.toggle("active", active);
+  });
+}
+
+function getChipGroupValue(groupName) {
+  const group = getChipGroup(groupName);
+  if (!group) return [];
+  const mode = group.getAttribute("data-chip-mode") || "single";
+  const active = Array.from(group.querySelectorAll(".chip-toggle.active")).map((btn) => btn.getAttribute("data-value") || "").filter(Boolean);
+  if (mode === "single") return active.slice(0, 1);
+  return active;
+}
+
+function resetMealSheetChips() {
+  setChipGroupValue("mealAmount", "正常");
+  setChipGroupValue("mealDiet", []);
+  setChipGroupValue("mealRisk", []);
+}
+
 function nowLocalInputValue() {
   const d = new Date();
   const pad = (v) => String(v).padStart(2, "0");
@@ -167,6 +198,17 @@ function mealFlag(meal, plan) {
   const mealTs = new Date(meal.time.replace(" ", "T") + ":00").getTime();
   const endTs = startTs + Number(plan.hours || 8) * 3600 * 1000;
   return mealTs >= startTs && mealTs <= endTs ? "窗口内" : "窗口外";
+}
+
+function mealTagSummary(meal) {
+  const parts = [];
+  const amount = String(meal?.meal_amount || "").trim();
+  if (amount) parts.push(amount);
+  const diets = Array.isArray(meal?.diet_types) ? meal.diet_types : [];
+  const risks = Array.isArray(meal?.risk_scenarios) ? meal.risk_scenarios : [];
+  if (diets.length) parts.push(diets.slice(0, 2).join("、"));
+  if (risks.length) parts.push(risks.slice(0, 2).join("、"));
+  return parts.filter(Boolean);
 }
 
 function dayLabel(day) {
@@ -512,6 +554,42 @@ function reminderDetail(snapshot, data) {
   return "继续保持当前节奏。";
 }
 
+function recentMealStats(data) {
+  const snapshots = weekSnapshots(data);
+  const meals = snapshots.flatMap((snapshot) => snapshot.meals || []);
+  const outCount = meals.filter((meal) => mealFlag(meal, data.plan) === "窗口外").length;
+  const overCount = meals.filter((meal) => String(meal.meal_amount || "正常") === "过量").length;
+  const takeawayCount = meals.filter((meal) => (Array.isArray(meal.diet_types) ? meal.diet_types : []).includes("外卖")).length;
+  const riskCounts = new Map();
+  meals.forEach((meal) => {
+    (Array.isArray(meal.risk_scenarios) ? meal.risk_scenarios : []).forEach((risk) => {
+      riskCounts.set(risk, (riskCounts.get(risk) || 0) + 1);
+    });
+  });
+  const topRisk = Array.from(riskCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+  const weights = (data.weights || []).slice().sort((a, b) => (a.time < b.time ? 1 : -1));
+  let weightChange = "暂无";
+  if (weights.length >= 2) {
+    const latest = Number(weights[0].weight);
+    const prev = Number(weights[1].weight);
+    if (!Number.isNaN(latest) && !Number.isNaN(prev)) {
+      const delta = latest - prev;
+      weightChange = `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg`;
+    }
+  } else if (weights.length === 1) {
+    weightChange = "首次记录";
+  }
+
+  return {
+    outCount,
+    overCount,
+    takeawayCount,
+    topRisk: topRisk ? `${topRisk[0]} ${topRisk[1]}次` : "暂无",
+    weightChange,
+    meals,
+  };
+}
+
 function appendReminderItem(container, tone, title, detail) {
   const item = document.createElement("article");
   item.className = `reminder-item reminder-${tone}`;
@@ -536,6 +614,7 @@ function openSheet(id) {
   if (id === "mealSheet") {
     const el = document.getElementById("mealTimeInput");
     if (!el.value) setInputValue("mealTimeInput", nowLocalInputValue());
+    resetMealSheetChips();
   }
   if (id === "weightSheet") {
     const el = document.getElementById("weightTimeInput");
@@ -687,47 +766,26 @@ function renderReminders(data) {
   const reviewSummary = document.getElementById("reviewSummary");
   const list = document.getElementById("reminderHighlights");
   const snapshots = weekSnapshots(data);
-  const anomalies = snapshots.filter((snapshot) => snapshot.status === "未达标");
-  const missing = snapshots.filter((snapshot) => snapshot.status === "未记录");
-  const latestMeal = (data.meals || [])[0];
+  const stats = recentMealStats(data);
   const riskMeterFill = document.getElementById("riskMeterFill");
-  const riskRatio = Math.max(0, Math.min(100, Math.round((anomalies.length / 7) * 100)));
+  const riskRatio = Math.max(0, Math.min(100, Math.round((stats.outCount / Math.max(1, stats.meals.length)) * 100)));
   if (riskMeterFill) riskMeterFill.style.width = `${riskRatio}%`;
 
-  let latestLabel = "最近 -";
-  if (latestMeal && latestMeal.time) {
-    const flag = mealFlag(latestMeal, data.plan);
-    latestLabel = `最近 ${latestMeal.time.slice(5, 10)} ${flag}`;
-  }
-
   list.innerHTML = "";
+  const statusTone = stats.outCount > 0 || stats.overCount > 0 ? "bad" : stats.meals.length === 0 ? "neutral" : "good";
+  title.textContent = statusTone === "bad" ? "偏离统计" : statusTone === "neutral" ? "待补记" : "状态稳定";
+  reviewSummary.textContent = `偏离 ${stats.outCount} · 过量 ${stats.overCount} · 外卖 ${stats.takeawayCount}`;
 
-  if (anomalies.length > 0) {
-    title.textContent = "偏离风险";
-    reviewSummary.textContent = `需调整 · 偏离 ${anomalies.length} · 缺记 ${missing.length}`;
-    anomalies.slice(0, 2).forEach((snapshot) => {
-      appendReminderItem(list, "bad", `${snapshot.label}`, reminderDetail(snapshot, data));
-    });
-    return;
+  appendReminderItem(list, statusTone, "本周", `偏离 ${stats.outCount} 次，过量 ${stats.overCount} 次，外卖 ${stats.takeawayCount} 次`);
+  appendReminderItem(list, "neutral", "风险场景", stats.topRisk);
+  appendReminderItem(list, "neutral", "体重变化", stats.weightChange);
+
+  if (stats.outCount > 0) {
+    const firstOut = snapshots.flatMap((snapshot) => snapshot.meals || []).find((meal) => mealFlag(meal, data.plan) === "窗口外");
+    if (firstOut) {
+      appendReminderItem(list, "bad", "最近偏离", `${firstOut.time.slice(5, 16)} · 窗口外`);
+    }
   }
-
-  if (missing.length > 0) {
-    title.textContent = "记录缺口";
-    reviewSummary.textContent = `待补记 · 偏离 0 · 缺记 ${missing.length}`;
-    missing.slice(0, 2).forEach((snapshot) => {
-      appendReminderItem(list, "neutral", `${snapshot.label}`, reminderDetail(snapshot, data));
-    });
-    return;
-  }
-
-  title.textContent = "状态稳定";
-  reviewSummary.textContent = `稳定 · 偏离 0 · 缺记 0 · ${latestLabel}`;
-  appendReminderItem(
-    list,
-    "good",
-    "节奏稳定",
-    `窗口内 ${data.week_stats?.ok_days ?? 0} 天`
-  );
 }
 
 function renderFeed(data) {
@@ -804,11 +862,15 @@ function renderFeed(data) {
       block.meals.forEach((meal) => {
         const item = document.createElement("div");
         item.className = "feed-item";
+        const tags = mealTagSummary(meal).map((text) => `<span class="mini-chip">${text}</span>`).join("");
         item.innerHTML = `
           <span class="feed-item-tag meal-tag">进食</span>
           <div class="feed-item-main">
-            <p>${meal.food}</p>
-            <span>${meal.time.slice(11)} · ${mealFlag(meal, data.plan)}</span>
+            <div class="feed-item-copy">
+              <p>${meal.food}</p>
+              <span>${meal.time.slice(11)} · ${mealFlag(meal, data.plan)}</span>
+            </div>
+            ${tags ? `<div class="feed-item-tags">${tags}</div>` : ""}
           </div>
         `;
         body.appendChild(item);
@@ -878,6 +940,9 @@ async function onMealSubmit() {
   const food = document.getElementById("mealFoodInput").value.trim();
   const note = document.getElementById("mealNoteInput").value.trim();
   const time = toApiDatetime("mealTimeInput");
+  const meal_amount = getChipGroupValue("mealAmount")[0] || "正常";
+  const diet_types = getChipGroupValue("mealDiet");
+  const risk_scenarios = getChipGroupValue("mealRisk");
   if (!food) {
     setMessage("请填食物", true);
     return;
@@ -885,11 +950,12 @@ async function onMealSubmit() {
 
   await withThrottle("saveMeal", async () => {
     try {
-      const data = await apiPost("/api/meal", { food, note, time });
+      const data = await apiPost("/api/meal", { food, note, time, meal_amount, diet_types, risk_scenarios });
       setMessage(syncOutcomeText(data.in_window ? "已记录进食" : "已记录，注意这次在窗口外", data), !data.in_window, data.in_window ? "normal" : "warning");
       setInputValue("mealFoodInput", "");
       setInputValue("mealTimeInput", "");
       setInputValue("mealNoteInput", "");
+      resetMealSheetChips();
       closeSheet("mealSheet", { force: true });
       await refreshStatus();
     } catch (err) {
@@ -1057,6 +1123,22 @@ function setupEvents() {
   document.getElementById("toggleFeedBtn").addEventListener("click", () => {
     state.feedExpanded = !state.feedExpanded;
     renderFeed(state.data);
+  });
+
+  document.querySelectorAll("[data-chip-group]").forEach((group) => {
+    const groupName = group.getAttribute("data-chip-group");
+    const mode = group.getAttribute("data-chip-mode") || "single";
+    group.addEventListener("click", (event) => {
+      const btn = event.target.closest(".chip-toggle");
+      if (!btn) return;
+      const value = btn.getAttribute("data-value") || "";
+      if (!value) return;
+      if (mode === "single") {
+        setChipGroupValue(groupName, value);
+        return;
+      }
+      btn.classList.toggle("active");
+    });
   });
 }
 

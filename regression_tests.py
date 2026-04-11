@@ -57,7 +57,22 @@ class RegressionTests(unittest.TestCase):
         out = self._run_cli("set-window", "--start", "09:30", "--hours", "8")
         self.assertIn("已设置进食窗口", out)
 
-        out = self._run_cli("meal", "--food", "鸡蛋+牛奶", "--time", "2026-04-08 12:00", "--note", "午餐")
+        out = self._run_cli(
+            "meal",
+            "--food",
+            "鸡蛋+牛奶",
+            "--time",
+            "2026-04-08 12:00",
+            "--amount",
+            "正常",
+            "--diet-types",
+            "外卖",
+            "高碳",
+            "--risk-scenarios",
+            "加班",
+            "--note",
+            "午餐",
+        )
         self.assertIn("已记录进食", out)
 
         out = self._run_cli("weight", "--value", "72.5", "--time", "2026-04-08 07:30")
@@ -76,6 +91,9 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(len(data.get("meals", [])), 1)
         self.assertEqual(len(data.get("weight_logs", [])), 1)
         self.assertNotIn("waist_logs", data)
+        self.assertEqual(data.get("meals", [])[0].get("meal_amount"), "正常")
+        self.assertIn("外卖", data.get("meals", [])[0].get("diet_types", []))
+        self.assertIn("加班", data.get("meals", [])[0].get("risk_scenarios", []))
 
         excel_path = self.tmpdir / "fasting_report.xlsx"
         self.assertTrue(excel_path.exists())
@@ -181,7 +199,17 @@ class RegressionTests(unittest.TestCase):
             data = post("/api/goal", {"start_date": "2026-04-01", "end_date": "2026-06-01", "start_weight": 78, "target_weight": 65})
             self.assertTrue(data["ok"])
 
-            data = post("/api/meal", {"food": "燕麦+牛奶", "time": f"{today} 11:10", "note": "午餐"})
+            data = post(
+                "/api/meal",
+                {
+                    "food": "燕麦+牛奶",
+                    "time": f"{today} 11:10",
+                    "meal_amount": "过量",
+                    "diet_types": ["外卖", "高碳"],
+                    "risk_scenarios": ["加班"],
+                    "note": "午餐",
+                },
+            )
             self.assertTrue(data["ok"])
             self.assertTrue(data["in_window"])
 
@@ -204,6 +232,9 @@ class RegressionTests(unittest.TestCase):
             self.assertIn("pace_status", final_status["goal"])
             self.assertEqual(len(final_status["records"]), 0)
             self.assertEqual(len(final_status["meals"]), 1)
+            self.assertEqual(final_status["meals"][0].get("meal_amount"), "过量")
+            self.assertIn("外卖", final_status["meals"][0].get("diet_types", []))
+            self.assertIn("加班", final_status["meals"][0].get("risk_scenarios", []))
             self.assertEqual(len(final_status["weights"]), 1)
             self.assertEqual(len(final_status["sleeps"]), 1)
             self.assertEqual(len(final_status["exercises"]), 1)

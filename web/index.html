@@ -137,6 +137,29 @@
     <section id="mealSheet" class="sheet hidden">
       <h3>进食</h3>
       <input id="mealFoodInput" placeholder="食物" maxlength="80" />
+      <label>餐量</label>
+      <div class="chip-group" data-chip-group="mealAmount" data-chip-mode="single">
+        <button type="button" class="chip-toggle" data-value="少量">少量</button>
+        <button type="button" class="chip-toggle active" data-value="正常">正常</button>
+        <button type="button" class="chip-toggle" data-value="过量">过量</button>
+      </div>
+      <label>饮食类型</label>
+      <div class="chip-group" data-chip-group="mealDiet" data-chip-mode="multi">
+        <button type="button" class="chip-toggle" data-value="自煮">自煮</button>
+        <button type="button" class="chip-toggle" data-value="外卖">外卖</button>
+        <button type="button" class="chip-toggle" data-value="轻食">轻食</button>
+        <button type="button" class="chip-toggle" data-value="高碳">高碳</button>
+        <button type="button" class="chip-toggle" data-value="高脂">高脂</button>
+        <button type="button" class="chip-toggle" data-value="高蛋白">高蛋白</button>
+      </div>
+      <label>风险场景</label>
+      <div class="chip-group" data-chip-group="mealRisk" data-chip-mode="multi">
+        <button type="button" class="chip-toggle" data-value="加班">加班</button>
+        <button type="button" class="chip-toggle" data-value="应酬">应酬</button>
+        <button type="button" class="chip-toggle" data-value="熬夜">熬夜</button>
+        <button type="button" class="chip-toggle" data-value="情绪波动">情绪波动</button>
+        <button type="button" class="chip-toggle" data-value="出差">出差</button>
+      </div>
       <input id="mealTimeInput" type="datetime-local" />
       <input id="mealNoteInput" placeholder="备注" maxlength="80" />
       <div class="sheet-actions">

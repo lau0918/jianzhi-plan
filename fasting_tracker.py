@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import zipfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,6 +48,9 @@ class MealRecord:
     date: str
     time: str
     food: str
+    meal_amount: str = "正常"
+    diet_types: List[str] = field(default_factory=list)
+    risk_scenarios: List[str] = field(default_factory=list)
     note: str = ""
 
 
@@ -91,6 +95,18 @@ def parse_clock(value: str) -> time:
         return datetime.strptime(value, CLOCK_FMT).time()
     except ValueError as exc:
         raise ValueError(f"时间窗口格式错误: {value}，请使用: {CLOCK_FMT}") from exc
+
+
+def _normalize_tag_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        parts = re.split(r"[、,，|/]\s*", value)
+        return [part.strip() for part in parts if part.strip()]
+    text = str(value).strip()
+    return [text] if text else []
 
 
 def load_data() -> Dict[str, Any]:
@@ -527,7 +543,16 @@ def export_excel_report(data: Dict[str, Any]) -> None:
         for r in sorted(records, key=lambda item: item.get("date", ""), reverse=True)
     ]
     meal_rows = [
-        [m.get("date", ""), m.get("time", ""), m.get("food", ""), "是" if is_meal_in_window(m.get("time", ""), plan) else "否", m.get("note", "")]
+        [
+            m.get("date", ""),
+            m.get("time", ""),
+            m.get("food", ""),
+            m.get("meal_amount", "正常"),
+            "、".join(_normalize_tag_list(m.get("diet_types"))),
+            "、".join(_normalize_tag_list(m.get("risk_scenarios"))),
+            "是" if is_meal_in_window(m.get("time", ""), plan) else "否",
+            m.get("note", ""),
+        ]
         for m in sorted(meals, key=lambda item: item.get("time", ""), reverse=True)
     ]
     weight_rows = [
@@ -564,7 +589,7 @@ def export_excel_report(data: Dict[str, Any]) -> None:
 
     sheet1 = _sheet_xml(["指标", "值"], summary_rows)
     sheet2 = _sheet_xml(["日期", "开始时间", "结束时间", "断食时长(小时)", "结果", "备注"], record_rows)
-    sheet3 = _sheet_xml(["日期", "进食时间", "食物", "是否在8小时窗口", "备注"], meal_rows)
+    sheet3 = _sheet_xml(["日期", "进食时间", "食物", "餐量", "饮食类型", "风险场景", "是否在8小时窗口", "备注"], meal_rows)
     sheet4 = _sheet_xml(["日期", "记录时间", "体重(kg)", "备注"], weight_rows)
     sheet5 = _sheet_xml(
         ["日期", "执行状态", "执行原因", "教练状态", "教练关注项", "教练建议", "进食次数", "窗口外进食次数", "断食时长", "体重(kg)", "睡眠(小时)", "运动(分钟)"],
@@ -736,6 +761,9 @@ def cmd_meal(args: argparse.Namespace) -> None:
         date=meal_dt.strftime(DATE_FMT),
         time=meal_dt.strftime(TIME_FMT),
         food=food,
+        meal_amount=(args.amount or "正常").strip() or "正常",
+        diet_types=_normalize_tag_list(args.diet_types),
+        risk_scenarios=_normalize_tag_list(args.risk_scenarios),
         note=(args.note or "").strip(),
     )
     data["meals"].append(asdict(meal))
@@ -743,7 +771,13 @@ def cmd_meal(args: argparse.Namespace) -> None:
 
     in_window = is_meal_in_window(meal.time, data.get("plan", DEFAULT_PLAN))
     flag = "窗口内" if in_window else "窗口外"
-    print(f"已记录进食: {meal.time} | {meal.food}（{flag}）")
+    tag_bits = [f"餐量={meal.meal_amount}"]
+    if meal.diet_types:
+        tag_bits.append(f"饮食={'、'.join(meal.diet_types)}")
+    if meal.risk_scenarios:
+        tag_bits.append(f"场景={'、'.join(meal.risk_scenarios)}")
+    tag_text = " | " + " | ".join(tag_bits) if tag_bits else ""
+    print(f"已记录进食: {meal.time} | {meal.food}（{flag}）{tag_text}")
 
 
 def cmd_meals(args: argparse.Namespace) -> None:
@@ -763,9 +797,14 @@ def cmd_meals(args: argparse.Namespace) -> None:
     meals = sorted(meals, key=lambda m: m["time"], reverse=True)[: args.limit]
     print(f"最近 {len(meals)} 条进食记录:")
     for m in meals:
-        extra = f" | 备注: {m['note']}" if m.get("note") else ""
+        amount = m.get("meal_amount", "正常")
+        diet_types = "、".join(_normalize_tag_list(m.get("diet_types")))
+        risk = "、".join(_normalize_tag_list(m.get("risk_scenarios")))
+        tags = " | ".join(filter(None, [f"餐量: {amount}" if amount else "", f"饮食: {diet_types}" if diet_types else "", f"场景: {risk}" if risk else ""]))
+        extra = f" | {tags}" if tags else ""
+        note = f" | 备注: {m['note']}" if m.get("note") else ""
         flag = "✅窗口内" if is_meal_in_window(m["time"], plan) else "⚠窗口外"
-        print(f"{m['time']} | {m['food']} | {flag}{extra}")
+        print(f"{m['time']} | {m['food']} | {flag}{extra}{note}")
 
 
 def cmd_weight(args: argparse.Namespace) -> None:
@@ -961,6 +1000,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_meal = sub.add_parser("meal", help="记录一次进食")
     p_meal.add_argument("--food", required=True, help="食物内容，例如: 鸡蛋+牛奶")
     p_meal.add_argument("--time", help=f"进食时间，格式: {TIME_FMT}")
+    p_meal.add_argument("--amount", help="餐量：少量/正常/过量，默认正常")
+    p_meal.add_argument("--diet-types", nargs="*", help="饮食类型，多选，以空格分隔")
+    p_meal.add_argument("--risk-scenarios", nargs="*", help="风险场景，多选，以空格分隔")
     p_meal.add_argument("--note", help="进食备注")
     p_meal.set_defaults(func=cmd_meal)
 

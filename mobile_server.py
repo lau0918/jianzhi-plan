@@ -214,9 +214,24 @@ def _notion_read_property(prop: Dict[str, Any] | None) -> Any:
     if kind == "select":
         select = prop.get("select") or {}
         return select.get("name")
+    if kind == "multi_select":
+        values = prop.get("multi_select") or []
+        return [item.get("name") for item in values if isinstance(item, dict) and item.get("name")]
     if kind == "checkbox":
         return prop.get("checkbox")
     return None
+
+
+def _coerce_text_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        parts = re.split(r"[、,，|/]\s*", value)
+        return [part.strip() for part in parts if part.strip()]
+    text = str(value).strip()
+    return [text] if text else []
 
 
 def _notion_sync_page(database_id: str, properties: Dict[str, Any]) -> tuple[bool, str | None]:
@@ -291,15 +306,37 @@ def _notion_sync_meal(meal: MealRecord, in_window: bool) -> tuple[bool, str | No
     title_prop = _notion_pick_property(schema, "title", ("食物", "名称", "记录"))
     time_prop = _notion_pick_property(schema, "date", ("时间", "日期"))
     window_prop = _notion_pick_property(schema, "select", ("窗口状态", "状态", "类型", "分类"))
+    amount_prop = _notion_pick_property(schema, "select", ("餐量", "份量", "分量"))
+    amount_text_prop = _notion_pick_property(schema, "rich_text", ("餐量", "份量", "分量"))
+    diet_multi_prop = _notion_pick_property(schema, "multi_select", ("饮食类型", "饮食", "标签"))
+    diet_text_prop = _notion_pick_property(schema, "rich_text", ("饮食类型", "饮食", "标签"))
+    risk_multi_prop = _notion_pick_property(schema, "multi_select", ("风险场景", "场景", "风险"))
+    risk_text_prop = _notion_pick_property(schema, "rich_text", ("风险场景", "场景", "风险"))
     note_prop = _notion_pick_property(schema, "rich_text", ("备注", "说明", "描述"))
     if not title_prop or not time_prop:
         return False, "进食表缺少标题或时间字段"
+    diet_types = _coerce_text_list(getattr(meal, "diet_types", []))
+    risk_scenarios = _coerce_text_list(getattr(meal, "risk_scenarios", []))
     props = {
         title_prop: {"title": [{"text": {"content": meal.food}}]},
         time_prop: {"date": {"start": _notion_datetime(meal.time)}},
     }
     if window_prop:
         props[window_prop] = {"select": {"name": "窗口内" if in_window else "窗口外"}}
+    if amount_prop:
+        props[amount_prop] = {"select": {"name": meal.meal_amount or "正常"}}
+    elif amount_text_prop:
+        props[amount_text_prop] = {"rich_text": [{"text": {"content": meal.meal_amount or "正常"}}]}
+    if diet_types:
+        if diet_multi_prop:
+            props[diet_multi_prop] = {"multi_select": [{"name": item} for item in diet_types]}
+        elif diet_text_prop:
+            props[diet_text_prop] = {"rich_text": [{"text": {"content": "、".join(diet_types)}}]}
+    if risk_scenarios:
+        if risk_multi_prop:
+            props[risk_multi_prop] = {"multi_select": [{"name": item} for item in risk_scenarios]}
+        elif risk_text_prop:
+            props[risk_text_prop] = {"rich_text": [{"text": {"content": "、".join(risk_scenarios)}}]}
     if note_prop:
         props[note_prop] = {"rich_text": [{"text": {"content": meal.note or ""}}]}
     return _notion_sync_page(db_id, props)
@@ -751,6 +788,9 @@ class TrackerHandler(BaseHTTPRequestHandler):
             return self._json_response({"ok": False, "error": "food 不能为空"}, HTTPStatus.BAD_REQUEST)
 
         raw_time = str(body.get("time", "")).strip()
+        meal_amount = str(body.get("meal_amount", "正常")).strip() or "正常"
+        diet_types = _coerce_text_list(body.get("diet_types"))
+        risk_scenarios = _coerce_text_list(body.get("risk_scenarios"))
         note = str(body.get("note", "")).strip()
         meal_dt = parse_time(raw_time) if raw_time else now_local()
 
@@ -758,6 +798,9 @@ class TrackerHandler(BaseHTTPRequestHandler):
             date=meal_dt.strftime(DATE_FMT),
             time=meal_dt.strftime(TIME_FMT),
             food=food,
+            meal_amount=meal_amount,
+            diet_types=diet_types,
+            risk_scenarios=risk_scenarios,
             note=note,
         )
         data.setdefault("meals", []).append(asdict(meal))

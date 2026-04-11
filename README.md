@@ -5,12 +5,12 @@
 支持：
 
 - 固定进食窗口（8小时）执行跟踪
-- 每次进食记录（时间、食物、备注）
+- 每次进食记录（时间、食物、餐量、饮食类型、风险场景、备注）
 - 每日体重记录与周期趋势统计
 - 目标总览（开始日期、初始体重、目标体重、当前体重、是否达标）
 - 教练复盘（睡眠 / 运动 / 餐次建议，不改写 8+16 主执行结果）
 - 自动导出 Excel 分析文件
-- 可选同步到 Notion（Meals / Weights / Goals / Sleep / Exercise），并支持从 Goals 表回填减脂目标
+- 可选同步到 Notion（Meals / Weights / Goals / Sleep / Exercise），并支持从 Goals 表回填减脂目标；Meals 支持餐量、饮食类型、风险场景标签
 - 可选 Telegram 三餐提醒（基于 Notion）
 
 ## 命令行使用
@@ -31,7 +31,7 @@ python3 fasting_tracker.py set-window --start "07:00" --hours 8
 python3 fasting_tracker.py window
 
 # 记录进食 / 体重
-python3 fasting_tracker.py meal --food "鸡胸肉+西兰花" --time "2026-04-08 12:10"
+python3 fasting_tracker.py meal --food "鸡胸肉+西兰花" --time "2026-04-08 12:10" --amount 正常 --diet-types 外卖 高碳 --risk-scenarios 加班
 python3 fasting_tracker.py weight --value 71.8 --time "2026-04-08 07:20"
 
 # 查看历史与统计
@@ -94,7 +94,7 @@ python3 regression_tests.py
 - `NOTION_GOALS_DB`：目标表数据库 ID
 - `NOTION_SLEEP_DB`：睡眠表数据库 ID（可选）
 - `NOTION_EXERCISE_DB`：运动表数据库 ID（可选）
-- Notion 字段会优先按表结构自动匹配标题 / 时间 / 数值 / 备注字段；如果你自建数据库字段名不同，也要保证字段类型正确。
+- Notion 字段会优先按表结构自动匹配标题 / 时间 / 数值 / 备注字段；Meals 还会自动匹配 `餐量`（select）/ `饮食类型`（multi_select 或 rich_text）/ `风险场景`（multi_select 或 rich_text）。
 - `HOST`：可选，默认 `0.0.0.0`
 - `PORT`：平台注入，Railway 会自动提供
 

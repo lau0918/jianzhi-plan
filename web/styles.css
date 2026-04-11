@@ -660,6 +660,46 @@ h4 {
   font-weight: 650;
 }
 
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #d6e7f6;
+  background: #fff;
+  color: #3f556b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.chip-toggle.active {
+  border-color: rgba(29, 155, 240, 0.32);
+  background: rgba(29, 155, 240, 0.12);
+  color: #1d4ed8;
+}
+
+.mini-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid #d6e7f6;
+  background: #f8fbff;
+  color: #49647d;
+  font-size: 10px;
+  font-weight: 650;
+}
+
 .feed-card {
   border-radius: 8px;
   padding: 14px 16px;
@@ -923,8 +963,21 @@ h4 {
   flex: 1;
 }
 
-.feed-item-main p,
-.feed-item-main span {
+.feed-item-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.feed-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 48%;
+}
+
+.feed-item-copy p,
+.feed-item-copy span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1150,8 +1203,18 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .feed-item-main p,
-  .feed-item-main span {
+  .feed-item-copy p,
+  .feed-item-copy span {
     white-space: nowrap;
+  }
+
+  .feed-item-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .feed-item-tags {
+    max-width: 100%;
+    justify-content: flex-start;
   }
 }
